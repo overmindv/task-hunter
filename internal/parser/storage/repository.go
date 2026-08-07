@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"diploma/internal/parser/domain"
@@ -48,7 +49,12 @@ func SaveIfNotDuplicate(ctx context.Context, task domain.Task, repo Repository) 
 		return false, err
 	}
 	if existing != nil {
-		return false, nil // дубликат, не сохраняем
+		slog.Debug("skipped duplicate task",
+			"source_hash", task.SourceHash,
+			"source_id", task.Source.ID,
+			"existing_id", existing.ID,
+		)
+		return false, nil
 	}
 
 	if err := repo.Save(ctx, task); err != nil {

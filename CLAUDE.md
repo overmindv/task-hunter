@@ -74,7 +74,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Format:** `gofmt -s -w .`
 - **Goose migrate up:** `goose -dir migrations postgres "$PARSER_DATABASE_DSN" up`
 - **Goose migrate down:** `goose -dir migrations postgres "$PARSER_DATABASE_DSN" down`
-- **Go-jet codegen:** `jet -dsn "$PARSER_DATABASE_DSN" -path internal/parser/storage/jet`
+- **Go-jet codegen:** `jet -source=postgres -dsn "$PARSER_DATABASE_DSN" -path internal/parser/storage/jet`
+- **CodeGraph sync:** `codegraph sync`
+- **All tests:** `go test ./... ./tests/...`
+- **Unit tests only:** `go test ./internal/...`
+- **Component tests only:** `go test ./tests/component/...`
 
 ## Tasks
 
