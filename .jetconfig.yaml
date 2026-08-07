@@ -1,0 +1,3 @@
+---
+dsn: "postgres://postgres:postgres@localhost:5433/diploma_test?sslmode=disable"
+path: "./internal/parser/storage/jet"
