@@ -294,6 +294,194 @@ func TestParser_SimpleText(t *testing.T) {
 	}
 }
 
+// --- Normalizer tests ---
+
+func TestNormalizer_Russian(t *testing.T) {
+	normalizer := NewNormalizer()
+	desc := readTestFile(t, "normalizer_russian.txt")
+
+	task := &domain.Task{Description: desc}
+	err := normalizer.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("normalizer: %v", err)
+	}
+
+	if strings.Contains(task.Description, "**Ввод:**") || strings.Contains(task.Description, "**Вывод:**") {
+		t.Error("description should not contain Russian example headers after normalization")
+	}
+	if !strings.Contains(task.Description, "**Input:**") {
+		t.Error("expected '**Input:**' after normalization")
+	}
+	if !strings.Contains(task.Description, "**Output:**") {
+		t.Error("expected '**Output:**' after normalization")
+	}
+}
+
+func TestNormalizer_RussianGolden(t *testing.T) {
+	normalizer := NewNormalizer()
+	desc := readTestFile(t, "normalizer_russian.txt")
+
+	task := &domain.Task{Description: desc}
+	err := normalizer.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("normalizer: %v", err)
+	}
+
+	got := task.Description
+	goldenPath := filepath.Join("testdata", "normalizer_russian.golden")
+
+	if *update {
+		writeGolden(t, goldenPath, got)
+	}
+
+	expected := readGolden(t, goldenPath)
+	if got != expected {
+		t.Errorf("normalizer result mismatch.\n  got:\n%s\n---\n  want:\n%s", got, expected)
+	}
+}
+
+func TestNormalizer_TagsSorting(t *testing.T) {
+	normalizer := NewNormalizer()
+	task := &domain.Task{
+		Tags: []domain.Tag{"hash-table", "array", "two-pointers", "Array"},
+	}
+
+	err := normalizer.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("normalizer: %v", err)
+	}
+
+	for i := 1; i < len(task.Tags); i++ {
+		prev := strings.ToLower(string(task.Tags[i-1]))
+		curr := strings.ToLower(string(task.Tags[i]))
+		if prev > curr {
+			t.Errorf("tags not sorted: %s > %s at positions %d/%d", prev, curr, i-1, i)
+		}
+	}
+}
+
+func TestNormalizer_TagsDeduplication(t *testing.T) {
+	normalizer := NewNormalizer()
+	task := &domain.Task{
+		Tags: []domain.Tag{"array", "array", "hash-table", "array"},
+	}
+
+	err := normalizer.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("normalizer: %v", err)
+	}
+
+	if len(task.Tags) != 2 {
+		t.Errorf("expected 2 unique tags, got %d: %v", len(task.Tags), task.Tags)
+	}
+}
+
+func TestNormalizer_EmptyExamplesRemoval(t *testing.T) {
+	normalizer := NewNormalizer()
+	task := &domain.Task{
+		Examples: []domain.Example{
+			{Input: "in1", Output: "out1"},
+			{Input: "", Output: ""},
+			{Input: "in3", Output: "out3"},
+		},
+	}
+
+	err := normalizer.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("normalizer: %v", err)
+	}
+
+	if len(task.Examples) != 2 {
+		t.Errorf("expected 2 examples after cleanup, got %d", len(task.Examples))
+	}
+}
+
+// --- Validator tests ---
+
+func TestValidator_Valid(t *testing.T) {
+	validator := NewValidator()
+	task := validTestTask()
+
+	err := validator.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("expected valid task to pass, got: %v", err)
+	}
+}
+
+func TestValidator_EmptyDescription(t *testing.T) {
+	validator := NewValidator()
+	task := validTestTask()
+	task.Description = ""
+
+	err := validator.Process(context.Background(), testRawTask(), task)
+	if err == nil {
+		t.Fatal("expected error for empty description, got nil")
+	}
+}
+
+func TestValidator_EmptySourceURL(t *testing.T) {
+	validator := NewValidator()
+	task := validTestTask()
+	task.SourceURL = ""
+
+	err := validator.Process(context.Background(), testRawTask(), task)
+	if err == nil {
+		t.Fatal("expected error for empty source_url, got nil")
+	}
+}
+
+func TestValidator_UnknownSourceID(t *testing.T) {
+	validator := NewValidator()
+	task := validTestTask()
+	task.Source = domain.Source{ID: "unknown_source"}
+
+	err := validator.Process(context.Background(), testRawTask(), task)
+	if err == nil {
+		t.Fatal("expected error for unknown source_id, got nil")
+	}
+}
+
+func TestValidator_AutoHash(t *testing.T) {
+	validator := NewValidator()
+	task := validTestTask()
+	task.SourceHash = ""
+
+	err := validator.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("expected auto-hash to succeed, got: %v", err)
+	}
+	if task.SourceHash == "" {
+		t.Error("expected source_hash to be generated")
+	}
+}
+
+func TestValidator_TitleTooLong(t *testing.T) {
+	validator := NewValidator()
+	task := validTestTask()
+	task.Title = string(make([]byte, MaxTitleLength+1))
+
+	err := validator.Process(context.Background(), testRawTask(), task)
+	if err == nil {
+		t.Fatal("expected error for too long title, got nil")
+	}
+}
+
+// --- helpers ---
+
+func validTestTask() *domain.Task {
+	return &domain.Task{
+		Title:       "Two Sum",
+		Description: "Given an array of integers nums and an integer target, return indices of the two numbers.",
+		Source:      domain.Source{ID: domain.SourceLeetCode, Name: "LeetCode", Type: domain.SourceTypeWebsite},
+		SourceURL:   "https://leetcode.com/problems/two-sum",
+		SourceHash:  "test_hash",
+		Type:        domain.TaskTypeAlgorithm,
+		Difficulty:  domain.DifficultyEasy,
+		Examples:    []domain.Example{{Input: "in", Output: "out"}},
+		Tags:        []domain.Tag{"array"},
+	}
+}
+
 // --- Integration test ---
 
 func TestExtractorAndParserInPipeline(t *testing.T) {
