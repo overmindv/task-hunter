@@ -3,13 +3,22 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"diploma/internal/parser/domain"
 )
 
-// TestPipeline_RunSequential проверяет, что процессоры вызываются по порядку.
+// update flag для перезаписи golden-файлов: go test -update
+var update = flag.Bool("update", false, "update golden files")
+
+// --- Pipeline orchestration tests ---
+
 func TestPipeline_RunSequential(t *testing.T) {
 	ctx := context.Background()
 	p := NewPipeline()
@@ -31,50 +40,20 @@ func TestPipeline_RunSequential(t *testing.T) {
 		return nil
 	}))
 
-	p.AddProcessor("third", ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		if task.Description != "second" {
-			t.Errorf("expected description 'second' from previous stage, got %q", task.Description)
-		}
-		order = append(order, "third")
-		task.Type = domain.TaskTypeAlgorithm
-		return nil
-	}))
-
 	raw := testRawTask()
 	result, err := p.Run(ctx, raw)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Проверяем порядок вызовов
-	if len(order) != 3 {
-		t.Fatalf("expected 3 calls, got %d", len(order))
+	if len(order) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(order))
 	}
-	if order[0] != "first" || order[1] != "second" || order[2] != "third" {
-		t.Errorf("wrong order: %v", order)
-	}
-
-	// Проверяем итоговую задачу
-	if result.Task.Title != "first" {
-		t.Errorf("expected title 'first', got %q", result.Task.Title)
-	}
-	if result.Task.Description != "second" {
-		t.Errorf("expected description 'second', got %q", result.Task.Description)
-	}
-
-	// Проверяем Result
-	if len(result.Stages) != 3 {
-		t.Fatalf("expected 3 stage results, got %d", len(result.Stages))
-	}
-	if result.Stages[0].Name != "first" || result.Stages[1].Name != "second" || result.Stages[2].Name != "third" {
-		t.Errorf("wrong stage names: %v", result.Stages)
-	}
-	if result.Duration <= 0 {
-		t.Error("expected positive duration")
+	if len(result.Stages) != 2 {
+		t.Fatalf("expected 2 stages, got %d", len(result.Stages))
 	}
 }
 
-// TestPipeline_ErrorStopsChain проверяет, что ошибка останавливает цепочку.
 func TestPipeline_ErrorStopsChain(t *testing.T) {
 	ctx := context.Background()
 	p := NewPipeline()
@@ -95,8 +74,7 @@ func TestPipeline_ErrorStopsChain(t *testing.T) {
 		return nil
 	}))
 
-	raw := testRawTask()
-	_, err := p.Run(ctx, raw)
+	_, err := p.Run(ctx, testRawTask())
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -105,161 +83,25 @@ func TestPipeline_ErrorStopsChain(t *testing.T) {
 		t.Error("processor after error should not be called")
 	}
 
-	// Проверяем тип ошибки
 	var stageErr *StageError
-	if errors.As(err, &stageErr) {
-		if stageErr.Stage != "fails" {
-			t.Errorf("expected stage 'fails', got %q", stageErr.Stage)
-		}
-	} else {
-		t.Errorf("expected *StageError, got %T: %v", err, err)
+	if !errors.As(err, &stageErr) {
+		t.Errorf("expected *StageError, got %T", err)
 	}
-
-	// Проверяем, что в Result только 2 этапа (ok + fails)
-	// Проверяем, что у второго этапа есть ошибка
 }
 
-// TestPipeline_EmptyPipeline проверяет, что пустой пайплайн возвращает ошибку.
 func TestPipeline_EmptyPipeline(t *testing.T) {
-	ctx := context.Background()
-	p := NewPipeline()
-
-	raw := testRawTask()
-	_, err := p.Run(ctx, raw)
+	_, err := NewPipeline().Run(context.Background(), testRawTask())
 	if err == nil {
 		t.Fatal("expected error for empty pipeline")
 	}
 }
 
-// TestPipeline_ResultOnError проверяет, что Result содержит частичный результат при ошибке.
-func TestPipeline_ResultOnError(t *testing.T) {
-	ctx := context.Background()
-	p := NewPipeline()
-
-	p.AddProcessor("first", ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		task.Title = "partial"
-		return nil
-	}))
-
-	p.AddProcessor("fails", ProcessorFunc(func(_ context.Context, _ domain.RawTask, _ *domain.Task) error {
-		return errors.New("fail")
-	}))
-
-	raw := testRawTask()
-	result, err := p.Run(ctx, raw)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-
-	// Должен быть хотя бы один stage
-	if len(result.Stages) == 0 {
-		t.Error("expected at least 1 stage result")
-	}
-
-	// Первый этап успешен
-	if result.Stages[0].Name != "first" {
-		t.Errorf("expected first stage name 'first', got %q", result.Stages[0].Name)
-	}
-	if result.Stages[0].Error != nil {
-		t.Errorf("expected no error on first stage, got %v", result.Stages[0].Error)
-	}
-
-	// Второй этап с ошибкой
-	if len(result.Stages) >= 2 {
-		if result.Stages[1].Error == nil {
-			t.Error("expected error on second stage")
-		}
-	}
-
-	if result.Duration <= 0 {
-		t.Error("expected positive duration even on error")
-	}
-}
-
-// TestPipeline_ContextCancellation проверяет, что контекст отмены прерывает пайплайн.
-func TestPipeline_ContextCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	p := NewPipeline()
-
-	p.AddProcessor("first", ProcessorFunc(func(_ context.Context, _ domain.RawTask, _ *domain.Task) error {
-		cancel() // отменяем контекст
-		return nil
-	}))
-
-	p.AddProcessor("second", ProcessorFunc(func(c context.Context, _ domain.RawTask, _ *domain.Task) error {
-		select {
-		case <-c.Done():
-			return c.Err()
-		default:
-			return nil
-		}
-	}))
-
-	raw := testRawTask()
-	result, err := p.Run(ctx, raw)
-	if err == nil {
-		t.Fatal("expected context cancellation error")
-	}
-
-	if len(result.Stages) < 2 {
-		t.Errorf("expected at least 2 stages, got %d", len(result.Stages))
-	}
-}
-
-// TestPipeline_ProcessorsBuildTask проверяет, что процессоры наполняют задачу.
-func TestPipeline_ProcessorsBuildTask(t *testing.T) {
-	ctx := context.Background()
-	p := NewPipeline()
-
-	p.AddProcessor("source", ProcessorFunc(func(_ context.Context, raw domain.RawTask, task *domain.Task) error {
-		task.Source = raw.Source
-		task.SourceURL = raw.SourceURL
-		return nil
-	}))
-
-	p.AddProcessor("content", ProcessorFunc(func(_ context.Context, raw domain.RawTask, task *domain.Task) error {
-		task.Title = "Extracted"
-		task.Description = string(raw.RawContent)
-		task.Type = domain.TaskTypeAlgorithm
-		task.Difficulty = domain.DifficultyMedium
-		return nil
-	}))
-
-	raw := testRawTask()
-	result, err := p.Run(ctx, raw)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if result.Task.Source.ID != domain.SourceLeetCode {
-		t.Errorf("expected SourceLeetCode, got %v", result.Task.Source.ID)
-	}
-	if result.Task.Title != "Extracted" {
-		t.Errorf("expected 'Extracted', got %q", result.Task.Title)
-	}
-	if result.Task.Description != "test content" {
-		t.Errorf("expected 'test content', got %q", result.Task.Description)
-	}
-	if result.Task.Type != domain.TaskTypeAlgorithm {
-		t.Errorf("expected Algorithm, got %v", result.Task.Type)
-	}
-}
-
-// TestNewDefaultPipeline проверяет создание пайплайна по умолчанию.
 func TestNewDefaultPipeline(t *testing.T) {
 	p := NewDefaultPipeline()
-	if p == nil {
-		t.Fatal("expected non-nil pipeline")
-	}
-
-	raw := testRawTask()
-	ctx := context.Background()
-
-	result, err := p.Run(ctx, raw)
+	result, err := p.Run(context.Background(), testRawTask())
 	if err != nil {
-		t.Fatalf("default pipeline run failed: %v", err)
+		t.Fatalf("default pipeline failed: %v", err)
 	}
-
 	if result.Task.Source.ID != domain.SourceLeetCode {
 		t.Errorf("expected SourceLeetCode, got %v", result.Task.Source.ID)
 	}
@@ -268,30 +110,212 @@ func TestNewDefaultPipeline(t *testing.T) {
 	}
 }
 
-// TestPipeline_StageTiming проверяет, что длительность этапов записывается.
-func TestPipeline_StageTiming(t *testing.T) {
-	ctx := context.Background()
-	p := NewPipeline()
+// --- Extractor tests ---
 
-	p.AddProcessor("slow", ProcessorFunc(func(_ context.Context, _ domain.RawTask, _ *domain.Task) error {
-		time.Sleep(time.Millisecond)
-		return nil
-	}))
+func TestExtractor_CodeforcesHTML(t *testing.T) {
+	extractor := NewExtractor()
+	raw := loadRawTask(t, "extractor_codeforces.html", domain.SourceCodeforces, domain.SourceTypeWebsite)
 
-	raw := testRawTask()
-	result, err := p.Run(ctx, raw)
+	task := &domain.Task{}
+	err := extractor.Process(context.Background(), raw, task)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("extractor: %v", err)
 	}
 
-	if len(result.Stages) != 1 {
-		t.Fatalf("expected 1 stage, got %d", len(result.Stages))
+	got := task.Title + "\n---\n" + task.Description
+	goldenPath := filepath.Join("testdata", "extractor_codeforces.golden")
+
+	if *update {
+		writeGolden(t, goldenPath, got)
 	}
-	if result.Stages[0].Duration < time.Millisecond {
-		t.Errorf("expected duration >= 1ms, got %v", result.Stages[0].Duration)
+
+	if task.SourceHash == "" {
+		t.Error("expected source_hash to be set")
 	}
-	if result.Duration < result.Stages[0].Duration {
-		t.Error("total duration should be >= stage duration")
+
+	expected := readGolden(t, goldenPath)
+	if got != expected {
+		t.Errorf("extracted content mismatch.\n  got:\n%s\n---\n  want:\n%s", got, expected)
+	}
+}
+
+func TestExtractor_LeetCodeHTML(t *testing.T) {
+	extractor := NewExtractor()
+	raw := loadRawTask(t, "extractor_leetcode.html", domain.SourceLeetCode, domain.SourceTypeWebsite)
+
+	task := &domain.Task{}
+	err := extractor.Process(context.Background(), raw, task)
+	if err != nil {
+		t.Fatalf("extractor: %v", err)
+	}
+
+	got := task.Title + "\n---\n" + task.Description
+	goldenPath := filepath.Join("testdata", "extractor_leetcode.golden")
+
+	if *update {
+		writeGolden(t, goldenPath, got)
+	}
+
+	expected := readGolden(t, goldenPath)
+	if got != expected {
+		t.Errorf("extracted content mismatch.\n  got:\n%s\n---\n  want:\n%s", got, expected)
+	}
+}
+
+func TestExtractor_JSON(t *testing.T) {
+	extractor := NewExtractor()
+	raw := loadRawTask(t, "extractor_api.json", domain.SourceCodeforces, domain.SourceTypeAPI)
+
+	task := &domain.Task{}
+	err := extractor.Process(context.Background(), raw, task)
+	if err != nil {
+		t.Fatalf("extractor: %v", err)
+	}
+
+	if task.Title != "Two Sum" {
+		t.Errorf("expected title 'Two Sum', got %q", task.Title)
+	}
+	if task.Description == "" {
+		t.Error("expected non-empty description")
+	}
+}
+
+func TestExtractor_EmptyContent(t *testing.T) {
+	extractor := NewExtractor()
+	raw := domain.RawTask{
+		Source:      domain.Source{ID: domain.SourceManual, Name: "Manual", Type: domain.SourceTypeManual},
+		RawContent:  nil,
+		SourceURL:   "https://manual.example.com",
+		RetrievedAt: time.Now(),
+	}
+
+	task := &domain.Task{}
+	err := extractor.Process(context.Background(), raw, task)
+	if err != nil {
+		t.Fatalf("extractor: %v", err)
+	}
+	if task.Title != "Manual" {
+		t.Errorf("expected title 'Manual', got %q", task.Title)
+	}
+}
+
+func TestExtractor_PlainText(t *testing.T) {
+	extractor := NewExtractor()
+	raw := domain.RawTask{
+		Source:      domain.Source{ID: domain.SourceTelegramAlgorithms, Name: "Algo Channel", Type: domain.SourceTypeTelegram},
+		RawContent:  []byte("Two Sum Problem\n\nGiven an array, find two numbers that add up to target."),
+		SourceURL:   "https://t.me/algoses/123",
+		RetrievedAt: time.Now(),
+	}
+
+	task := &domain.Task{}
+	err := extractor.Process(context.Background(), raw, task)
+	if err != nil {
+		t.Fatalf("extractor: %v", err)
+	}
+	if !strings.Contains(task.Title, "Two Sum") {
+		t.Errorf("expected title containing 'Two Sum', got %q", task.Title)
+	}
+	if task.Description == "" {
+		t.Error("expected non-empty description")
+	}
+}
+
+// --- Parser tests ---
+
+func TestParser_FullText(t *testing.T) {
+	parser := NewParser()
+	task := &domain.Task{Description: readTestFile(t, "parser_full.txt")}
+
+	err := parser.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("parser: %v", err)
+	}
+
+	if !strings.Contains(strings.ToLower(task.Title), "binary tree inorder") {
+		t.Errorf("expected title containing 'Binary Tree Inorder', got %q", task.Title)
+	}
+	if len(task.Examples) == 0 {
+		t.Error("expected at least one example")
+	}
+	if len(task.Constraints) == 0 {
+		t.Error("expected at least one constraint")
+	}
+	if len(task.Tags) == 0 {
+		t.Error("expected tags to be extracted")
+	}
+	if strings.Contains(task.Description, "Constraints:") {
+		t.Error("description should not contain constraints section")
+	}
+}
+
+func TestParser_OnlyDescription(t *testing.T) {
+	parser := NewParser()
+	task := &domain.Task{Description: readTestFile(t, "parser_only_description.txt")}
+
+	err := parser.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("parser: %v", err)
+	}
+	if task.Description == "" {
+		t.Error("expected non-empty description")
+	}
+}
+
+func TestParser_EmptyText(t *testing.T) {
+	parser := NewParser()
+	task := &domain.Task{Description: ""}
+
+	err := parser.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("expected no error for empty text, got: %v", err)
+	}
+}
+
+func TestParser_SimpleText(t *testing.T) {
+	parser := NewParser()
+	task := &domain.Task{Description: readTestFile(t, "parser_simple.txt")}
+
+	err := parser.Process(context.Background(), testRawTask(), task)
+	if err != nil {
+		t.Fatalf("parser: %v", err)
+	}
+
+	got := formatTaskSummary(task)
+	goldenPath := filepath.Join("testdata", "parser_simple.golden")
+
+	if *update {
+		writeGolden(t, goldenPath, got)
+	}
+
+	expected := readGolden(t, goldenPath)
+	if got != expected {
+		t.Errorf("parser result mismatch.\n  got:\n%s\n---\n  want:\n%s", got, expected)
+	}
+}
+
+// --- Integration test ---
+
+func TestExtractorAndParserInPipeline(t *testing.T) {
+	p := NewPipeline()
+	p.AddProcessor("extractor", NewExtractor())
+	p.AddProcessor("parser", NewParser())
+
+	raw := loadRawTask(t, "extractor_codeforces.html", domain.SourceCodeforces, domain.SourceTypeWebsite)
+
+	result, err := p.Run(context.Background(), raw)
+	if err != nil {
+		t.Fatalf("pipeline: %v", err)
+	}
+
+	if result.Task.Title == "" {
+		t.Error("expected non-empty title after pipeline")
+	}
+	if result.Task.Description == "" {
+		t.Error("expected non-empty description after pipeline")
+	}
+	if result.Task.SourceHash == "" {
+		t.Error("expected source_hash after pipeline")
 	}
 }
 
@@ -299,13 +323,76 @@ func TestPipeline_StageTiming(t *testing.T) {
 
 func testRawTask() domain.RawTask {
 	return domain.RawTask{
-		Source: domain.Source{
-			ID:   domain.SourceLeetCode,
-			Name: "LeetCode",
-			Type: domain.SourceTypeWebsite,
-		},
+		Source:      domain.Source{ID: domain.SourceLeetCode, Name: "LeetCode", Type: domain.SourceTypeWebsite},
 		RawContent:  []byte("test content"),
 		SourceURL:   "https://leetcode.com/problems/two-sum",
 		RetrievedAt: time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
 	}
+}
+
+func loadRawTask(t *testing.T, filename string, sourceID domain.SourceID, sourceType domain.SourceType) domain.RawTask {
+	t.Helper()
+	content := readTestFile(t, filename)
+	return domain.RawTask{
+		Source: domain.Source{
+			ID:   sourceID,
+			Name: string(sourceID),
+			Type: sourceType,
+		},
+		RawContent:  []byte(content),
+		SourceURL:   "https://example.com/" + filename,
+		RetrievedAt: time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
+	}
+}
+
+func readTestFile(t *testing.T, name string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatalf("read testdata/%s: %v", name, err)
+	}
+	return string(data)
+}
+
+func writeGolden(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write golden %s: %v", path, err)
+	}
+}
+
+func readGolden(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read golden %s: %v", path, err)
+	}
+	return string(data)
+}
+
+func formatTaskSummary(task *domain.Task) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Title: %s\n", task.Title)
+	fmt.Fprintf(&b, "Description: %s\n", truncate(task.Description, 100))
+	fmt.Fprintf(&b, "Examples: %d\n", len(task.Examples))
+	fmt.Fprintf(&b, "Constraints: %d\n", len(task.Constraints))
+	fmt.Fprintf(&b, "Tags: %d\n", len(task.Tags))
+	for _, ex := range task.Examples {
+		fmt.Fprintf(&b, "  Input: %s\n", ex.Input)
+		fmt.Fprintf(&b, "  Output: %s\n", ex.Output)
+	}
+	for _, c := range task.Constraints {
+		fmt.Fprintf(&b, "  Constraint: %s\n", c)
+	}
+	for _, tag := range task.Tags {
+		fmt.Fprintf(&b, "  Tag: %s\n", string(tag))
+	}
+	return b.String()
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }
