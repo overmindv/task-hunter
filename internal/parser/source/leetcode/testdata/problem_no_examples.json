@@ -1,0 +1,15 @@
+{
+  "data": {
+    "question": {
+      "questionId": "999",
+      "title": "Design a DSU",
+      "titleSlug": "design-a-dsu",
+      "difficulty": "HARD",
+      "content": "<p>Design a Disjoint Set Union (DSU) data structure.</p>\n\n<p>Implement the <code>DSU</code> class:</p>\n<ul>\n<li><code>DSU(int n)</code> Initializes the object with <code>n</code> elements.</li>\n<li><code>int find(int x)</code> Returns the representative of the set containing <code>x</code>.</li>\n<li><code>void union(int x, int y)</code> Unions the sets containing <code>x</code> and <code>y</code>.</li>\n</ul>\n\n<p>&nbsp;</p>\n<p><strong>Constraints:</strong></p>\n<ul>\n<li><code>1 &lt;= n &lt;= 10<sup>5</sup></code></li>\n<li>At most <code>10<sup>5</sup></code> calls will be made.</li>\n</ul>\n",
+      "topicTags": [
+        {"name": "Union Find"},
+        {"name": "Design"}
+      ]
+    }
+  }
+}
