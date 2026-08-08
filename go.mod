@@ -23,6 +23,7 @@ require (
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
