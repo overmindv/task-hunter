@@ -1,0 +1,39 @@
+{
+  "data": {
+    "problemsetQuestionList": {
+      "total": 3000,
+      "questions": [
+        {
+          "titleSlug": "two-sum",
+          "title": "Two Sum",
+          "difficulty": "EASY",
+          "topicTags": [
+            {"name": "Array"},
+            {"name": "Hash Table"}
+          ]
+        },
+        {
+          "titleSlug": "add-two-numbers",
+          "title": "Add Two Numbers",
+          "difficulty": "MEDIUM",
+          "topicTags": [
+            {"name": "Linked List"},
+            {"name": "Math"},
+            {"name": "Recursion"}
+          ]
+        },
+        {
+          "titleSlug": "merge-k-sorted-lists",
+          "title": "Merge k Sorted Lists",
+          "difficulty": "HARD",
+          "topicTags": [
+            {"name": "Linked List"},
+            {"name": "Divide and Conquer"},
+            {"name": "Heap (Priority Queue)"},
+            {"name": "Merge Sort"}
+          ]
+        }
+      ]
+    }
+  }
+}
