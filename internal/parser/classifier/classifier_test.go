@@ -67,7 +67,7 @@ func TestClassify_Golden(t *testing.T) {
 				t.Fatalf("Classify: %v", err)
 			}
 
-			got := taskTypeString(task.Type)
+			got := formatClassifyResult(task)
 			goldenPath := filepath.Join("testdata", tc.name+".golden")
 
 			if *update {
@@ -105,10 +105,10 @@ func TestClassify_MixedKeywords(t *testing.T) {
 	// В тексте много ключевых слов и Database (sql, таблиц, join, индекс, запрос)
 	// и Backend (api, rest, http, jwt, авторизация, запрос).
 	// Должен выбрать тот, у кого больше совпадений.
-	t.Logf("mixed task classified as: %s", taskTypeString(task.Type))
+	t.Logf("mixed task classified as: %s", task.Type.String())
 
 	if task.Type != domain.TaskTypeDatabase && task.Type != domain.TaskTypeBackend {
-		t.Errorf("expected Database or Backend for mixed task, got %s", taskTypeString(task.Type))
+		t.Errorf("expected Database or Backend for mixed task, got %s", task.Type.String())
 	}
 }
 
@@ -127,7 +127,7 @@ func TestClassify_EmptyDescription(t *testing.T) {
 		t.Fatalf("Classify: %v", err)
 	}
 	if task.Type != domain.TaskTypeAlgorithm {
-		t.Errorf("expected TaskTypeAlgorithm for empty task, got %s", taskTypeString(task.Type))
+		t.Errorf("expected TaskTypeAlgorithm for empty task, got %s", task.Type.String())
 	}
 }
 
@@ -158,7 +158,7 @@ func TestClassify_WithTags(t *testing.T) {
 		t.Fatalf("Classify: %v", err)
 	}
 	if task.Type != domain.TaskTypeDataStructures {
-		t.Errorf("expected TaskTypeDataStructures for stack/queue/heap tags, got %s", taskTypeString(task.Type))
+		t.Errorf("expected TaskTypeDataStructures for stack/queue/heap tags, got %s", task.Type.String())
 	}
 }
 
@@ -178,7 +178,7 @@ func TestClassify_PipelineProcessor(t *testing.T) {
 		t.Fatalf("Process: %v", err)
 	}
 	if task.Type != domain.TaskTypeInfrastructure {
-		t.Errorf("expected TaskTypeInfrastructure, got %s", taskTypeString(task.Type))
+		t.Errorf("expected TaskTypeInfrastructure, got %s", task.Type.String())
 	}
 }
 
@@ -229,7 +229,20 @@ func readGolden(t *testing.T, path string) string {
 	return string(data)
 }
 
-// taskTypeString — вспомогательная функция для golden-файлов.
-func taskTypeString(t domain.TaskType) string {
-	return fmt.Sprintf("type: %s (%d)", t.String(), t)
+// classifyResult — результат классификации для golden-файлов.
+type classifyResult struct {
+	Type       string `json:"type"`
+	TypeID     int    `json:"type_id"`
+	Difficulty string `json:"difficulty"`
+	DiffID     int    `json:"difficulty_id"`
+}
+
+func formatClassifyResult(task *domain.Task) string {
+	r := classifyResult{
+		Type:       task.Type.String(),
+		TypeID:     int(task.Type),
+		Difficulty: task.Difficulty.String(),
+		DiffID:     int(task.Difficulty),
+	}
+	return fmt.Sprintf("type: %s | difficulty: %s", r.Type, r.Difficulty)
 }
