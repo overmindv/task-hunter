@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"time"
 
+	"diploma/internal/parser/classifier"
 	"diploma/internal/parser/domain"
 )
 
@@ -189,11 +190,8 @@ func NewDefaultPipeline() *Pipeline {
 		return nil
 	}))
 
-	// Classifier (заглушка)
-	p.AddProcessor("classifier", ProcessorFunc(func(_ context.Context, raw domain.RawTask, task *domain.Task) error {
-		_ = raw
-		return nil
-	}))
+	// Classifier — определяет тип задачи по ключевым словам
+	p.AddProcessor("classifier", classifier.NewRuleBasedClassifier())
 
 	// Validator (заглушка)
 	p.AddProcessor("validator", ProcessorFunc(func(_ context.Context, raw domain.RawTask, task *domain.Task) error {
