@@ -18,10 +18,11 @@ type Classifier interface {
 	Classify(ctx context.Context, task *domain.Task) error
 }
 
-// RuleBasedClassifier определяет тип задачи по ключевым словам.
+// RuleBasedClassifier определяет тип и сложность задачи по ключевым словам.
 type RuleBasedClassifier struct {
 	// rules — правила для каждого типа задачи.
-	rules []typeRule
+	rules      []typeRule
+	diffAnalyzer *DifficultyAnalyzer
 }
 
 // typeRule содержит набор ключевых слов для одного типа задачи.
@@ -33,7 +34,8 @@ type typeRule struct {
 // NewRuleBasedClassifier создаёт классификатор с правилами по умолчанию.
 func NewRuleBasedClassifier() *RuleBasedClassifier {
 	return &RuleBasedClassifier{
-		rules: defaultRules(),
+		rules:         defaultRules(),
+		diffAnalyzer: NewDifficultyAnalyzer(),
 	}
 }
 
@@ -55,9 +57,10 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 		text += " " + strings.ToLower(string(tag))
 	}
 
-	// Если текст пустой — ставим TaskTypeAlgorithm (без паники)
+	// Если текст пустой — ставим TaskTypeAlgorithm, DifficultyMedium (без паники)
 	if strings.TrimSpace(text) == "" {
 		task.Type = domain.TaskTypeAlgorithm
+		task.Difficulty = domain.DifficultyMedium
 		return nil
 	}
 
@@ -78,6 +81,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	// Если совпадений нет — TaskTypeAlgorithm по умолчанию
 	if len(matches) == 0 {
 		task.Type = domain.TaskTypeAlgorithm
+		task.Difficulty = c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags)
 		return nil
 	}
 
@@ -91,6 +95,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	}
 
 	task.Type = best.typ
+	task.Difficulty = c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags)
 	return nil
 }
 
