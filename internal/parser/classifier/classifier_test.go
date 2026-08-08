@@ -3,7 +3,6 @@ package classifier
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -229,20 +228,3 @@ func readGolden(t *testing.T, path string) string {
 	return string(data)
 }
 
-// classifyResult — результат классификации для golden-файлов.
-type classifyResult struct {
-	Type       string `json:"type"`
-	TypeID     int    `json:"type_id"`
-	Difficulty string `json:"difficulty"`
-	DiffID     int    `json:"difficulty_id"`
-}
-
-func formatClassifyResult(task *domain.Task) string {
-	r := classifyResult{
-		Type:       task.Type.String(),
-		TypeID:     int(task.Type),
-		Difficulty: task.Difficulty.String(),
-		DiffID:     int(task.Difficulty),
-	}
-	return fmt.Sprintf("type: %s | difficulty: %s", r.Type, r.Difficulty)
-}
