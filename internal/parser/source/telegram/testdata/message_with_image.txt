@@ -1,0 +1,3 @@
+Solve this binary tree problem:
+
+Check if a binary tree is balanced.
