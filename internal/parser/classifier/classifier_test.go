@@ -227,4 +227,3 @@ func readGolden(t *testing.T, path string) string {
 	}
 	return string(data)
 }
-

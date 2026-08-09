@@ -21,7 +21,7 @@ type Classifier interface {
 // RuleBasedClassifier определяет тип и сложность задачи по ключевым словам.
 type RuleBasedClassifier struct {
 	// rules — правила для каждого типа задачи.
-	rules      []typeRule
+	rules        []typeRule
 	diffAnalyzer *DifficultyAnalyzer
 }
 
@@ -34,7 +34,7 @@ type typeRule struct {
 // NewRuleBasedClassifier создаёт классификатор с правилами по умолчанию.
 func NewRuleBasedClassifier() *RuleBasedClassifier {
 	return &RuleBasedClassifier{
-		rules:         defaultRules(),
+		rules:        defaultRules(),
 		diffAnalyzer: NewDifficultyAnalyzer(),
 	}
 }
@@ -66,7 +66,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 
 	// Подсчитываем совпадения для каждого типа
 	type matchCount struct {
-		typ  domain.TaskType
+		typ   domain.TaskType
 		count int
 	}
 
@@ -173,4 +173,3 @@ func defaultRules() []typeRule {
 		},
 	}
 }
-

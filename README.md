@@ -1,6 +1,6 @@
-# TaskCollector — Сервис сбора и классификации задач по программированию
+# Task-Hunter — Сервис сбора и классификации задач по программированию
 
-Сервис автоматически собирает задачи по программированию из внешних источников (веб-сайты, Telegram-каналы), приводит их к единому формату, классифицирует по типу и сложности, и сохраняет в PostgreSQL.
+Сервис автоматически собирает задачи по программированию из внешних источников (веб-сайты, Telegram-каналы), приводит их к единому формату, классифицирует по типу и сложности, и сохраняет в БД.
 
 ---
 
@@ -115,21 +115,54 @@ export PARSER_SOURCE_CODERUN_ENABLED=true
 
 ### 5.3 Запуск
 
-```bash
-# 1. Подготовка БД (Docker)
-docker run -d --name parser-pg -e POSTGRES_USER=parser -e POSTGRES_PASSWORD=parser -e POSTGRES_DB=tasks -p 5432:5432 postgres:16
+#### Через Docker Compose (рекомендуемый способ)
 
-# 2. Настройка окружения
+```bash
+# Поднять PostgreSQL + парсер
+make docker-up
+
+# Посмотреть логи
+make docker-logs
+
+# Остановить
+make docker-down
+```
+
+#### Через Make + локальная БД
+
+```bash
+# 1. Поднять только PostgreSQL
+make run-dev
+
+# 2. Или вручную:
+docker run -d --name parser-pg \
+  -e POSTGRES_USER=parser \
+  -e POSTGRES_PASSWORD=parser \
+  -e POSTGRES_DB=tasks \
+  -p 5432:5432 postgres:16
+
+# 3. Настройка окружения
 export PARSER_DATABASE_DSN="postgres://parser:parser@localhost:5432/tasks?sslmode=disable"
 export PARSER_SOURCE_LEETCODE_ENABLED=true
 export PARSER_SOURCE_CODEFORCES_ENABLED=true
 export PARSER_SOURCE_CODERUN_ENABLED=true
 
-# 3. Запуск сервиса
-go run .
+# 4. Запуск сервиса
+make run
+# Или: go run .
+# Или: go run ./cmd/parser
+```
 
-# Или через cmd/parser:
-go run ./cmd/parser
+#### Через Docker Compose + все сервисы
+
+```bash
+# Сборка образа и запуск
+make docker-up
+
+# В docker-compose.yml включены все источники:
+# PARSER_SOURCE_LEETCODE_ENABLED=true
+# PARSER_SOURCE_CODEFORCES_ENABLED=true
+# PARSER_SOURCE_CODERUN_ENABLED=true
 ```
 
 ### 5.4 Проверка работы

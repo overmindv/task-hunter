@@ -400,4 +400,3 @@ func TestStop_Idempotent(t *testing.T) {
 }
 
 // --- helpers ---
-

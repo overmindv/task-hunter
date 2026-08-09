@@ -1,0 +1,48 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - misspell
+    - unconvert
+    - prealloc
+    - revive
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+
+    misspell:
+      locale: US
+
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+
+  exclusions:
+    paths:
+      - internal/parser/storage/jet/
+      - .codegraph/
+      - _test.go
+
+formatters:
+  - gofmt
+
+run:
+  timeout: 5m
+  tests: false
+  allow-parallel-runners: false

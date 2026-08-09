@@ -31,8 +31,8 @@ type httpClient interface {
 type Collector struct {
 	id          domain.SourceID
 	client      httpClient
-	language    string   // "ru" или "en"
-	lastIDs    map[string]int // contestId+index → последний обработанный ID
+	language    string         // "ru" или "en"
+	lastIDs     map[string]int // contestId+index → последний обработанный ID
 	rateLimiter *time.Ticker
 	userAgent   string
 	baseURL     string
@@ -45,7 +45,7 @@ func NewCollector(id domain.SourceID, client httpClient) *Collector {
 		id:          id,
 		client:      client,
 		language:    "en",
-		lastIDs:    make(map[string]int),
+		lastIDs:     make(map[string]int),
 		rateLimiter: time.NewTicker(2100 * time.Millisecond), // 2.1s > 2s requirement
 		userAgent:   "diploma-parser/1.0",
 		baseURL:     "https://codeforces.com",
@@ -84,8 +84,8 @@ func (c *Collector) Close() error {
 // --- API types ---
 
 type cfProblemsResponse struct {
-	Status string       `json:"status"`
-	Result cfResult     `json:"result"`
+	Status string   `json:"status"`
+	Result cfResult `json:"result"`
 }
 
 type cfResult struct {

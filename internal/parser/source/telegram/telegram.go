@@ -60,9 +60,9 @@ type RateLimitInfo struct {
 // Collector собирает задачи из Telegram-канала.
 // Реализует интерфейс source.Collector.
 type Collector struct {
-	id        domain.SourceID
-	client    tgClient
-	channels  []string // usernames каналов (без @)
+	id         domain.SourceID
+	client     tgClient
+	channels   []string // usernames каналов (без @)
 	channelIDs map[string]struct {
 		ID         int64
 		AccessHash int64
@@ -90,12 +90,15 @@ func NewCollector(id domain.SourceID, client tgClient, channels []string) (*Coll
 	}
 
 	return &Collector{
-		id:            id,
-		client:        client,
-		channels:      channels,
-		channelIDs:    make(map[string]struct { ID int64; AccessHash int64 }),
+		id:       id,
+		client:   client,
+		channels: channels,
+		channelIDs: make(map[string]struct {
+			ID         int64
+			AccessHash int64
+		}),
 		lastMessageIDs: make(map[string]int),
-		minInterval:   DefaultMinInterval,
+		minInterval:    DefaultMinInterval,
 	}, nil
 }
 
@@ -138,7 +141,10 @@ func (c *Collector) Connect(ctx context.Context) error {
 		}
 
 		c.mu.Lock()
-		c.channelIDs[ch] = struct{ ID int64; AccessHash int64 }{
+		c.channelIDs[ch] = struct {
+			ID         int64
+			AccessHash int64
+		}{
 			ID: channelID, AccessHash: accessHash,
 		}
 		c.mu.Unlock()

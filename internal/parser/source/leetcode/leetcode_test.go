@@ -21,9 +21,9 @@ var update = flag.Bool("update", false, "update golden files")
 // --- Mock HTTP client ---
 
 type mockHTTPClient struct {
-	responses    map[string]mockResponse
-	callCount    int
-	blockAll     bool // если true — возвращает 403 на любой запрос
+	responses map[string]mockResponse
+	callCount int
+	blockAll  bool // если true — возвращает 403 на любой запрос
 }
 
 type mockResponse struct {
@@ -443,12 +443,12 @@ func formatProblemset(problems []lcProblemBrief) string {
 }
 
 type printableDetail struct {
-	ID       string   `json:"id"`
-	Title    string   `json:"title"`
-	Slug     string   `json:"slug"`
-	Diff     string   `json:"difficulty"`
-	Content  string   `json:"content_first_200"`
-	Tags     []string `json:"tags"`
+	ID      string   `json:"id"`
+	Title   string   `json:"title"`
+	Slug    string   `json:"slug"`
+	Diff    string   `json:"difficulty"`
+	Content string   `json:"content_first_200"`
+	Tags    []string `json:"tags"`
 }
 
 func formatQuestionDetail(q *lcQuestionDetail) string {

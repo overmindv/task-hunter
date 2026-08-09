@@ -110,7 +110,7 @@ type gqlRequest struct {
 type gqlProblemsetResponse struct {
 	Data struct {
 		ProblemsetQuestionList struct {
-			Total     int               `json:"total"`
+			Total     int              `json:"total"`
 			Questions []lcProblemBrief `json:"questions"`
 		} `json:"problemsetQuestionList"`
 	} `json:"data"`
@@ -129,19 +129,19 @@ type gqlError struct {
 }
 
 type lcProblemBrief struct {
-	TitleSlug  string      `json:"titleSlug"`
-	Title      string      `json:"title"`
-	Difficulty string      `json:"difficulty"`
-	TopicTags  []lcTag     `json:"topicTags"`
+	TitleSlug  string  `json:"titleSlug"`
+	Title      string  `json:"title"`
+	Difficulty string  `json:"difficulty"`
+	TopicTags  []lcTag `json:"topicTags"`
 }
 
 type lcQuestionDetail struct {
-	QuestionID string   `json:"questionId"`
-	Title      string   `json:"title"`
-	TitleSlug  string   `json:"titleSlug"`
-	Difficulty string   `json:"difficulty"`
-	Content    string   `json:"content"` // HTML-условие задачи
-	TopicTags  []lcTag  `json:"topicTags"`
+	QuestionID string  `json:"questionId"`
+	Title      string  `json:"title"`
+	TitleSlug  string  `json:"titleSlug"`
+	Difficulty string  `json:"difficulty"`
+	Content    string  `json:"content"` // HTML-условие задачи
+	TopicTags  []lcTag `json:"topicTags"`
 }
 
 type lcTag struct {
