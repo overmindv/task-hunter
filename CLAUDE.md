@@ -65,20 +65,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+### Make (рекомендуемый способ)
+
+```bash
+make help          # Справка по всем командам
+make build         # Сборка бинарника
+make test          # Все тесты
+make test-unit     # Unit-тесты
+make test-component # Компонентные тесты
+make lint          # Линтинг
+make fmt           # Форматирование
+make docker-up     # Запуск PostgreSQL + парсер
+make docker-down   # Остановка сервисов
+make migrate-up    # Накатить миграции
+make codegen       # go-jet codegen
+make test-update   # Обновить golden-файлы
+make test-coverage # Покрытие тестами
+```
+
+### Go напрямую
+
 - **Build:** `go build ./...`
-- **Run:** `go run .`
-- **Run parser module:** `go run ./cmd/parser`
-- **Test all:** `go test ./...`
+- **Run:** `go run .` или `go run ./cmd/parser`
+- **Test all:** `go test ./... ./tests/...`
 - **Run single test:** `go test -run <TestName> ./<package>`
-- **Lint (golangci-lint):** `golangci-lint run ./...`
+- **Lint:** `golangci-lint run ./...`
 - **Format:** `gofmt -s -w .`
-- **Goose migrate up:** `goose -dir migrations postgres "$PARSER_DATABASE_DSN" up`
-- **Goose migrate down:** `goose -dir migrations postgres "$PARSER_DATABASE_DSN" down`
-- **Go-jet codegen:** `jet -source=postgres -dsn "$PARSER_DATABASE_DSN" -path internal/parser/storage/jet`
-- **CodeGraph sync:** `codegraph sync`
-- **All tests:** `go test ./... ./tests/...`
-- **Unit tests only:** `go test ./internal/...`
-- **Component tests only:** `go test ./tests/component/...`
+- **Goose migrate:** `goose -dir migrations postgres "$PARSER_DATABASE_DSN" up`
+- **Go-jet codegen:** `jet -source=postgres -dsn="$PARSER_DATABASE_DSN" -path internal/parser/storage/jet`
+- **CodeGraph:** `codegraph sync`
+- **Golden update:** `go test -update ./internal/parser/...`
 
 ## Tasks
 

@@ -339,4 +339,3 @@ func TestSourceManagerIntegration(t *testing.T) {
 	_ = collector.ID()
 	_ = collector.Close()
 }
-

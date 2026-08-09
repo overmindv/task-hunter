@@ -269,4 +269,3 @@ func BenchmarkMaskDSN(b *testing.B) {
 		maskDSN(dsn)
 	}
 }
-

@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  # --- База данных ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskcollector-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: parser
+      POSTGRES_PASSWORD: parser
+      POSTGRES_DB: tasks
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parser -d tasks"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Сервис парсинга ---
+  parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taskcollector-parser
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PARSER_DATABASE_DSN: "postgres://parser:parser@postgres:5432/tasks?sslmode=disable"
+      PARSER_DATABASE_MAXCONNS: "10"
+      PARSER_SCHEDULE_COLLECTCRON: "0 */6 * * *"
+      PARSER_SOURCE_LEETCODE_ENABLED: "true"
+      PARSER_SOURCE_CODEFORCES_ENABLED: "true"
+      PARSER_SOURCE_CODERUN_ENABLED: "true"
+
+volumes:
+  pgdata:

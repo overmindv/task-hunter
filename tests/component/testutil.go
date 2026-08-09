@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testDBURL    = "postgres://postgres:postgres@localhost:5433/diploma_test?sslmode=disable"
+	testDBURL     = "postgres://postgres:postgres@localhost:5433/diploma_test?sslmode=disable"
 	migrationsDir = "../../migrations"
 )
 

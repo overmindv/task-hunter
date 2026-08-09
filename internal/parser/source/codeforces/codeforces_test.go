@@ -163,8 +163,8 @@ func TestCollect_MockAPI(t *testing.T) {
 	problemHTML := `<html><body><div class="problem-statement"><div class="title">A. Watermelon</div><div class="statement"><p>Test</p></div></div></body></html>`
 
 	mock.responses = map[string]string{
-		"https://codeforces.com/api/problemset.problems":                            apiResponse,
-		"https://codeforces.com/problemset/problem/4/A":                          problemHTML,
+		"https://codeforces.com/api/problemset.problems": apiResponse,
+		"https://codeforces.com/problemset/problem/4/A":  problemHTML,
 	}
 
 	c := NewCollector(domain.SourceCodeforces, mock)
@@ -204,8 +204,8 @@ func TestCollect_Deduplication(t *testing.T) {
 	problemHTML := `<html><body>Watermelon</body></html>`
 
 	mock.responses = map[string]string{
-		"https://codeforces.com/api/problemset.problems":          apiResponse,
-		"https://codeforces.com/problemset/problem/4/A":        problemHTML,
+		"https://codeforces.com/api/problemset.problems": apiResponse,
+		"https://codeforces.com/problemset/problem/4/A":  problemHTML,
 	}
 
 	c := NewCollector(domain.SourceCodeforces, mock)

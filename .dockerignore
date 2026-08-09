@@ -1,0 +1,43 @@
+# --- Go ---
+.git/
+.gitignore
+.gitattributes
+
+# --- IDE ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- macOS ---
+.DS_Store
+
+# --- Environment ---
+.env
+.env.*
+.env.local
+
+# --- Build artifacts ---
+/dist/
+/build/
+/tmp/
+*.exe
+*.test
+*.out
+
+# --- Vendor ---
+vendor/
+
+# --- Documentation ---
+docs/
+README.md
+CLAUDE.md
+
+# --- CI ---
+.github/
+
+# --- CodeGraph ---
+.codegraph/
+
+# --- Jet codegen ---
+internal/parser/storage/jet/
