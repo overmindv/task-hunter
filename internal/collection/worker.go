@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/overmindv/task-hunter/internal/parser/classifier"
 	"github.com/overmindv/task-hunter/internal/parser/domain"
 	"github.com/overmindv/task-hunter/internal/parser/pipeline"
 )
@@ -31,6 +32,7 @@ func NewWorker(store *Store, telegram TelegramReader, websites WebsiteReader, si
 	processor := pipeline.NewPipeline()
 	processor.AddProcessor("extractor", pipeline.NewExtractor())
 	processor.AddProcessor("parser", pipeline.NewParser())
+	processor.AddProcessor("classifier", classifier.NewRuleBasedClassifier())
 	processor.AddProcessor("normalizer", pipeline.NewNormalizer())
 	processor.AddProcessor("validator", pipeline.NewValidator())
 
@@ -176,7 +178,7 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 // collectTelegram учитывает checkpoint только для планового и bootstrap-сбора.
 func (w *Worker) collectTelegram(ctx context.Context, job Job, source JobSource) ([]Candidate, error) {
 	if job.PublishedFrom == nil || job.PublishedTo == nil {
-		return nil, fmt.Errorf("Telegram job has no publication range")
+		return nil, fmt.Errorf("telegram job has no publication range")
 	}
 	afterID := int64(0)
 	publishedFrom := *job.PublishedFrom

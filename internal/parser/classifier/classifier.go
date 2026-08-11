@@ -60,7 +60,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	// Если текст пустой — ставим TaskTypeAlgorithm, DifficultyMedium (без паники)
 	if strings.TrimSpace(text) == "" {
 		task.Type = domain.TaskTypeAlgorithm
-		task.Difficulty = domain.DifficultyMedium
+		setFallbackDifficulty(task, domain.DifficultyMedium)
 		return nil
 	}
 
@@ -81,7 +81,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	// Если совпадений нет — TaskTypeAlgorithm по умолчанию
 	if len(matches) == 0 {
 		task.Type = domain.TaskTypeAlgorithm
-		task.Difficulty = c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags)
+		setFallbackDifficulty(task, c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags))
 		return nil
 	}
 
@@ -95,8 +95,15 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	}
 
 	task.Type = best.typ
-	task.Difficulty = c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags)
+	setFallbackDifficulty(task, c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags))
 	return nil
+}
+
+// setFallbackDifficulty сохраняет точную сложность, указанную источником.
+func setFallbackDifficulty(task *domain.Task, fallback domain.Difficulty) {
+	if task.Difficulty == domain.DifficultyUnknown {
+		task.Difficulty = fallback
+	}
 }
 
 // countKeywordMatches подсчитывает, сколько ключевых слов найдено в тексте.

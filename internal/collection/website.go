@@ -37,6 +37,13 @@ func NewDirectWebsiteReader(timeoutClient *http.Client) *DirectWebsiteReader {
 	}
 }
 
+// WithCodeforcesReaderURL настраивает fallback для заблокированных HTML-страниц.
+func (r *DirectWebsiteReader) WithCodeforcesReaderURL(rawURL string) *DirectWebsiteReader {
+	r.codeforces.WithReaderURL(rawURL)
+
+	return r
+}
+
 // ReadURL получает ровно одну задачу и никогда не обходит каталог сайта.
 func (r *DirectWebsiteReader) ReadURL(ctx context.Context, sourceID, rawURL string) (domain.RawTask, error) {
 	switch sourceID {

@@ -54,11 +54,16 @@ func (s *Store) CreateManual(ctx context.Context, actorID uuid.UUID, input Creat
 		})
 	}
 
+	seenURLs := make(map[string]struct{}, len(input.WebsiteURLs))
 	for _, rawURL := range input.WebsiteURLs {
 		sourceID, normalized, err := NormalizeWebsiteURL(rawURL)
 		if err != nil {
 			return Job{}, err
 		}
+		if _, exists := seenURLs[normalized]; exists {
+			continue
+		}
+		seenURLs[normalized] = struct{}{}
 		sources = append(sources, JobSource{
 			ID:       uuid.New(),
 			JobID:    job.ID,
@@ -284,7 +289,7 @@ func (s *Store) List(ctx context.Context, actorID uuid.UUID, unreadOnly bool, li
 	if err != nil {
 		return nil, fmt.Errorf("list collection jobs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	items := make([]Job, 0)
 	for rows.Next() {
@@ -395,7 +400,7 @@ func (s *Store) listSources(ctx context.Context, jobID uuid.UUID) ([]JobSource, 
 	if err != nil {
 		return nil, fmt.Errorf("list collection job sources: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	items := make([]JobSource, 0)
 	for rows.Next() {

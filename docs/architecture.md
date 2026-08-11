@@ -3,7 +3,7 @@
 ```text
 cron/admin API -> collection_jobs -> worker
                                   ├─ gotd/td Telegram range reader
-                                  ├─ Codeforces direct URL adapter
+                                  ├─ Codeforces direct URL + Reader fallback
                                   ├─ LeetCode direct URL adapter
                                   └─ CodeRun direct URL adapter
                                             |
@@ -26,4 +26,6 @@ Checkpoint обновляется только после подтверждён
 
 ## Безопасность
 
-Website URL сначала приводится к канонической HTTPS-ссылке известного хоста. Адаптер заново строит исходящий запрос и запрещает redirect, поэтому произвольный SSRF endpoint недоступен. Service tokens и Telegram session не логируются. Runtime-контейнер не выполняет миграции и работает без root.
+Website URL сначала приводится к канонической HTTPS-ссылке известного хоста. Варианты Codeforces `/contest/.../problem/...`, LeetCode `/description/`, query-параметры, `www` и завершающие слеши сводятся к одному external ID. Адаптер заново строит исходящий запрос и запрещает redirect, а вторичные файлы CodeRun разрешены только с доверенных доменов Яндекса.
+
+LeetCode использует endpoint `https://leetcode.com/graphql`. CodeRun читает серверный `__NEXT_DATA__`, затем загружает опубликованное условие и sample-файлы по подписанным ссылкам. Если Codeforces возвращает Cloudflare или JavaScript challenge, сервис обращается к настроенному Reader API только за `.problem-statement`; значение по умолчанию `https://r.jina.ai/http://codeforces.com`, ключ не нужен. Service tokens и Telegram session не логируются.

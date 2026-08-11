@@ -26,40 +26,63 @@ func NewExtractor() *Extractor {
 func (e *Extractor) Process(ctx context.Context, raw domain.RawTask, task *domain.Task) error {
 	_ = ctx
 
-	// Заполняем базовые поля из RawTask
+	// Сохраняем структурированные данные, подготовленные адаптером источника.
 	task.Source = raw.Source
 	task.SourceURL = raw.SourceURL
 	task.CreatedAt = raw.RetrievedAt
 	task.UpdatedAt = raw.RetrievedAt
 	task.SourceHash = domain.GenerateSourceHash(raw.Source.ID, raw.SourceURL, raw.RawContent)
+	task.Title = raw.Title
+	task.Description = raw.Statement
+	task.Examples = append([]domain.Example(nil), raw.Examples...)
+	task.Constraints = append([]string(nil), raw.Constraints...)
+	task.Difficulty = raw.Difficulty
+	task.Tags = append([]domain.Tag(nil), raw.Tags...)
 
 	content := string(raw.RawContent)
 	if content == "" {
-		// Если контента нет — title всё равно извлекаем из источника
-		task.Title = raw.Source.Name
+		if task.Title == "" {
+			task.Title = raw.Source.Name
+		}
+
 		return nil
 	}
 
 	switch raw.Source.Type {
 	case domain.SourceTypeWebsite:
 		extracted := extractFromHTML(content)
-		task.Title = extracted.title
-		task.Description = extracted.text
+		if task.Title == "" {
+			task.Title = extracted.title
+		}
+		if task.Description == "" {
+			task.Description = extracted.text
+		}
 
 	case domain.SourceTypeAPI:
 		extracted := extractFromJSON(content)
-		task.Title = extracted.title
-		task.Description = extracted.text
+		if task.Title == "" {
+			task.Title = extracted.title
+		}
+		if task.Description == "" {
+			task.Description = extracted.text
+		}
 
 	case domain.SourceTypeTelegram, domain.SourceTypeManual:
-		// Текст уже чистый, просто первая строка — заголовок
 		title, desc := extractTitleFromPlain(content)
-		task.Title = title
-		task.Description = desc
+		if task.Title == "" {
+			task.Title = title
+		}
+		if task.Description == "" {
+			task.Description = desc
+		}
 
 	default:
-		task.Title = raw.Source.Name
-		task.Description = content
+		if task.Title == "" {
+			task.Title = raw.Source.Name
+		}
+		if task.Description == "" {
+			task.Description = content
+		}
 	}
 
 	return nil

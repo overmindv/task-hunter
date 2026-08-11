@@ -57,7 +57,7 @@ func (r *MTProtoReader) ReadRange(ctx context.Context, channel string, from, to 
 			return fmt.Errorf("read Telegram authorization status: %w", err)
 		}
 		if !status.Authorized {
-			return fmt.Errorf("Telegram session is not authorized")
+			return fmt.Errorf("telegram session is not authorized")
 		}
 		resolved, err := client.API().ContactsResolveUsername(runCtx, &tg.ContactsResolveUsernameRequest{
 			Username: strings.TrimPrefix(channel, "@"),

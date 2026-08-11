@@ -132,6 +132,9 @@ func TestProblemToRawTask(t *testing.T) {
 		Rating:    800,
 		Tags:      []string{"brute force", "math"},
 	}, html)
+	if raw.Title != "A. Watermelon" || raw.Statement == "" || len(raw.Examples) != 1 {
+		t.Fatalf("expected structured Codeforces task, got %#v", raw)
+	}
 
 	got := formatRawTask(raw)
 	goldenPath := filepath.Join("testdata", "problem_page.golden")
@@ -185,6 +188,66 @@ func TestCollect_MockAPI(t *testing.T) {
 	}
 	if !strings.Contains(task.SourceURL, "4/A") {
 		t.Errorf("expected URL containing '4/A', got %q", task.SourceURL)
+	}
+}
+
+// TestCollectURLUsesReaderFallback проверяет fallback при техническом HTTP 200 Codeforces.
+func TestCollectURLUsesReaderFallback(t *testing.T) {
+	readerBody := `Title: Problem - 1A - Codeforces
+
+Markdown Content:
+A. Theatre Square
+
+time limit per test
+
+1 second
+
+memory limit per test
+
+256 megabytes
+
+input
+
+stdin
+
+output
+
+stdout
+
+Find the least number of flagstones.
+
+Input
+
+Three positive integers.
+
+Output
+
+Write the answer.
+
+Examples
+
+Input
+
+Copy
+
+6 6 4
+
+Output
+
+	Copy
+
+4`
+	mock := &mockHTTPClient{responses: map[string]string{
+		"https://codeforces.com/problemset/problem/1/A": "<html><script>enableJavaScript()</script></html>",
+		"https://reader.test/problemset/problem/1/A":    readerBody,
+	}}
+	collector := NewCollector(domain.SourceCodeforces, mock).WithReaderURL("https://reader.test").WithMinInterval(time.Millisecond)
+	raw, err := collector.CollectURL(context.Background(), "https://codeforces.com/problemset/problem/1/A")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw.Title != "A. Theatre Square" || len(raw.Examples) != 1 || raw.Examples[0].Output != "4" {
+		t.Fatalf("unexpected fallback task: %#v", raw)
 	}
 }
 

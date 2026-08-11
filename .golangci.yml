@@ -7,13 +7,10 @@ linters:
   default: none
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
-    - typecheck
     - unused
-    - gofmt
     - misspell
     - unconvert
     - prealloc
@@ -40,7 +37,8 @@ linters:
       - _test.go
 
 formatters:
-  - gofmt
+  enable:
+    - gofmt
 
 run:
   timeout: 5m

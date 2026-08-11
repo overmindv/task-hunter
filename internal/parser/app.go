@@ -104,7 +104,7 @@ func (a *App) Run(ctx context.Context) error {
 		slog.Info("app: stopping...")
 		return nil
 	case <-ctx.Done():
-		slog.Info("app: context cancelled")
+		slog.Info("app: context canceled")
 		return ctx.Err()
 	}
 }
@@ -161,7 +161,7 @@ func (a *App) openDB() (*sql.DB, error) {
 	db.SetConnMaxLifetime(a.cfg.Database.MaxConnLifetime)
 
 	if err := db.Ping(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 
