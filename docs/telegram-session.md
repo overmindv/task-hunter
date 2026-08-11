@@ -21,15 +21,13 @@ chmod 600 .local/telegram/telegram.session
 
 ## Docker Compose
 
-До первого `make up` скопируйте файл в named volume через одноразовый контейнер:
+В полном локальном стеке session создаётся одной интерактивной командой из каталога `infra`:
 
 ```bash
-docker compose -f ../infra/docker-compose.yml run --rm --no-deps \
-  -v "$PWD/.local/telegram/telegram.session:/tmp/telegram.session:ro" \
-  --entrypoint /bin/sh task-hunter \
-  -c 'cp /tmp/telegram.session /var/lib/task-hunter/telegram.session && chmod 600 /var/lib/task-hunter/telegram.session'
-docker compose -f ../infra/docker-compose.yml up -d
+TELEGRAM_PHONE=+79990000000 make telegram-login
 ```
+
+Перед этим заполните `TASK_HUNTER_TELEGRAM_API_ID` и `TASK_HUNTER_TELEGRAM_API_HASH` в `infra/.env`, получив их в разделе **API development tools** на `https://my.telegram.org`. После создания session включите `TASK_HUNTER_TELEGRAM_ENABLED=true` и выполните `make up`.
 
 ## Kubernetes
 
