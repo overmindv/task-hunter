@@ -40,6 +40,10 @@ func NewScheduler(store *Store, channels []string, limit int, bootstrap time.Dur
 
 // Start ставит bootstrap при отсутствии checkpoint и запускает cron.
 func (s *Scheduler) Start(ctx context.Context) error {
+	if len(s.channels) == 0 {
+		return nil
+	}
+
 	if err := s.enqueueBootstrap(ctx); err != nil {
 		return fmt.Errorf("enqueue bootstrap collection: %w", err)
 	}
@@ -61,6 +65,10 @@ func (s *Scheduler) Start(ctx context.Context) error {
 
 // Stop прекращает новые cron ticks и ожидает текущую enqueue-функцию.
 func (s *Scheduler) Stop(ctx context.Context) error {
+	if len(s.channels) == 0 {
+		return nil
+	}
+
 	stopped := s.cron.Stop()
 
 	select {

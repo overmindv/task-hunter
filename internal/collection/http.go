@@ -77,12 +77,14 @@ func (h *HTTPHandler) ready(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, err := os.Stat(h.sessionPath)
-	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
-		h.logger.Error("readiness failed", "reason", "Telegram session is unavailable")
-		writeError(w, http.StatusServiceUnavailable, "NOT_READY", "Telegram session не подготовлена")
+	if h.sessionPath != "" {
+		info, err := os.Stat(h.sessionPath)
+		if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+			h.logger.Error("readiness failed", "reason", "Telegram session is unavailable")
+			writeError(w, http.StatusServiceUnavailable, "NOT_READY", "Telegram session не подготовлена")
 
-		return
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})

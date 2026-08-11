@@ -34,8 +34,8 @@ go run ./cmd/task-hunter
 
 PostgreSQL component tests запускаются отдельно командой `COMPONENT_TEST_DSN='postgres://…' make test-component`. Они откатывают и повторно накатывают миграции, поэтому DSN должен указывать только на выделенную тестовую БД.
 
-Основные настройки: `PARSER_DATABASE_DSN`, `PARSER_TASKSIT_URL`, `PARSER_TASKSIT_TOKEN`, `PARSER_SECURITY_GATEWAYTOKEN`, `PARSER_TELEGRAM_APIID`, `PARSER_TELEGRAM_APIHASH`, `PARSER_TELEGRAM_SESSIONPATH`, `PARSER_TELEGRAM_CHANNELS`.
+Основные настройки: `PARSER_DATABASE_DSN`, `PARSER_TASKSIT_URL`, `PARSER_TASKSIT_TOKEN`, `PARSER_SECURITY_GATEWAYTOKEN` и `PARSER_TELEGRAM_ENABLED`. При включённом Telegram также требуются `PARSER_TELEGRAM_APIID`, `PARSER_TELEGRAM_APIHASH`, `PARSER_TELEGRAM_SESSIONPATH` и `PARSER_TELEGRAM_CHANNELS`.
 
-Для изолированного Compose-запуска скопируйте `.env.example` в `.env`, укажите адрес уже запущенного `tasks-it` и подготовьте Telegram session в volume. Полный стек с обоими сервисами, gateway и frontend поднимается из репозитория `infra`.
+Полный локальный стек запускается одной командой `make up` из репозитория `infra`. Telegram там по умолчанию выключен и не нужен для readiness; подключение MTProto описано в инфраструктурном README.
 
 Подготовка закрытого MTProto session описана в [docs/telegram-session.md](docs/telegram-session.md). Интегрированный локальный запуск находится в репозитории `infra`.

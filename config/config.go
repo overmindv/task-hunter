@@ -59,6 +59,7 @@ type WorkerConfig struct {
 
 // TelegramConfig задаёт MTProto и allowlist каналов.
 type TelegramConfig struct {
+	Enabled     bool     `envconfig:"ENABLED" default:"true"`
 	APIID       int      `envconfig:"APIID" default:"0"`
 	APIHash     string   `envconfig:"APIHASH" default:""`
 	SessionPath string   `envconfig:"SESSIONPATH" default:"/var/lib/task-hunter/telegram.session"`
@@ -185,7 +186,7 @@ func (c *Config) ValidateRuntime() error {
 	if c.Security.GatewayToken == "" {
 		return fmt.Errorf("PARSER_SECURITY_GATEWAYTOKEN is required")
 	}
-	if c.Telegram.APIID == 0 || c.Telegram.APIHash == "" || c.Telegram.SessionPath == "" || len(c.Telegram.Channels) == 0 {
+	if c.Telegram.Enabled && (c.Telegram.APIID == 0 || c.Telegram.APIHash == "" || c.Telegram.SessionPath == "" || len(c.Telegram.Channels) == 0) {
 		return fmt.Errorf("Telegram API credentials, session path and channels are required")
 	}
 	if c.Worker.DefaultLimit < 1 || c.Worker.DefaultLimit > 500 {
@@ -196,6 +197,10 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if c.HTTP.ReadTimeout <= 0 || c.HTTP.WriteTimeout <= 0 {
 		return fmt.Errorf("HTTP timeouts must be positive")
+	}
+
+	if !c.Telegram.Enabled {
+		return nil
 	}
 
 	seenChannels := make(map[string]struct{}, len(c.Telegram.Channels))

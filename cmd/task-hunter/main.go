@@ -59,7 +59,8 @@ func run(logger *slog.Logger) error {
 	}
 
 	worker := collection.NewWorker(store, telegramReader, websiteReader, sink, hostname, cfg.Worker.PollInterval, cfg.Worker.Lease)
-	scheduler := collection.NewScheduler(store, cfg.Telegram.Channels, cfg.Worker.DefaultLimit, cfg.Worker.Bootstrap, cfg.Schedule.CollectCron)
+	telegramChannels, telegramSessionPath := telegramRuntime(cfg)
+	scheduler := collection.NewScheduler(store, telegramChannels, cfg.Worker.DefaultLimit, cfg.Worker.Bootstrap, cfg.Schedule.CollectCron)
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -74,7 +75,7 @@ func run(logger *slog.Logger) error {
 		worker.Run(rootCtx)
 	}()
 
-	handler := collection.NewHTTPHandler(store, logger, cfg.Security.GatewayToken, cfg.Telegram.Channels, cfg.Worker.DefaultLimit, cfg.Telegram.SessionPath)
+	handler := collection.NewHTTPHandler(store, logger, cfg.Security.GatewayToken, telegramChannels, cfg.Worker.DefaultLimit, telegramSessionPath)
 	server := &http.Server{
 		Addr:         cfg.HTTP.Address,
 		Handler:      handler,
@@ -116,6 +117,15 @@ func run(logger *slog.Logger) error {
 	}
 
 	return runErr
+}
+
+// telegramRuntime отключает Telegram-задания и проверку session в локальном режиме.
+func telegramRuntime(cfg *config.Config) ([]string, string) {
+	if !cfg.Telegram.Enabled {
+		return nil, ""
+	}
+
+	return cfg.Telegram.Channels, cfg.Telegram.SessionPath
 }
 
 // openDB настраивает PostgreSQL pool без выполнения миграций в runtime-контейнере.

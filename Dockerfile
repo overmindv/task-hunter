@@ -18,6 +18,8 @@ COPY . .
 # Сборка бинарника
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /app/task-hunter ./cmd/task-hunter
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w" -o /app/telegram-session ./cmd/telegram-session
 RUN GOBIN=/app go install -tags="no_clickhouse no_mssql no_mysql no_sqlite3 no_libsql no_ydb no_vertica" github.com/pressly/goose/v3/cmd/goose@v3.27.3
 
 # ---- Run stage ----
@@ -29,6 +31,7 @@ WORKDIR /app
 
 # Копируем бинарник
 COPY --from=builder /app/task-hunter /usr/local/bin/task-hunter
+COPY --from=builder /app/telegram-session /usr/local/bin/telegram-session
 COPY --from=builder /app/goose /usr/local/bin/goose
 
 # Копируем миграции

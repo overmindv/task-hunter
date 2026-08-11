@@ -163,3 +163,67 @@ func TestActiveSources_Multiple(t *testing.T) {
 		t.Error("expected telegram_analytics in active sources")
 	}
 }
+
+// TestValidateRuntimeWithoutTelegram проверяет локальный запуск без внешних credentials.
+func TestValidateRuntimeWithoutTelegram(t *testing.T) {
+	cfg := Config{
+		TasksIT: TasksITConfig{
+			URL:        "http://tasks-it:8080",
+			Token:      "tasks-token",
+			Timeout:    time.Second,
+			MaxRetries: 3,
+		},
+		Security: SecurityConfig{
+			GatewayToken: "gateway-token",
+		},
+		Worker: WorkerConfig{
+			PollInterval: time.Second,
+			Lease:        time.Minute,
+			Bootstrap:    time.Hour,
+			DefaultLimit: 100,
+		},
+		HTTP: HTTPConfig{
+			ReadTimeout:  time.Second,
+			WriteTimeout: time.Second,
+		},
+		Telegram: TelegramConfig{
+			Enabled: false,
+		},
+	}
+
+	if err := cfg.ValidateRuntime(); err != nil {
+		t.Fatalf("expected disabled Telegram to be valid, got: %v", err)
+	}
+}
+
+// TestValidateRuntimeRequiresEnabledTelegram проверяет credentials включённого Telegram.
+func TestValidateRuntimeRequiresEnabledTelegram(t *testing.T) {
+	cfg := Config{
+		TasksIT: TasksITConfig{
+			URL:        "http://tasks-it:8080",
+			Token:      "tasks-token",
+			Timeout:    time.Second,
+			MaxRetries: 3,
+		},
+		Security: SecurityConfig{
+			GatewayToken: "gateway-token",
+		},
+		Worker: WorkerConfig{
+			PollInterval: time.Second,
+			Lease:        time.Minute,
+			Bootstrap:    time.Hour,
+			DefaultLimit: 100,
+		},
+		HTTP: HTTPConfig{
+			ReadTimeout:  time.Second,
+			WriteTimeout: time.Second,
+		},
+		Telegram: TelegramConfig{
+			Enabled: true,
+		},
+	}
+
+	if err := cfg.ValidateRuntime(); err == nil {
+		t.Fatal("expected enabled Telegram without credentials to fail")
+	}
+}
