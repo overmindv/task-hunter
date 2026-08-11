@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 var update = flag.Bool("update", false, "update golden files")
@@ -290,6 +290,12 @@ func TestHasProblemStatement(t *testing.T) {
 	}
 	if hasProblemStatement("") {
 		t.Error("expected false for empty string")
+	}
+	if !hasProblemStatement("<html><body><main><h1>Калькулятор</h1><p>Дано выражение.</p></main></body></html>") {
+		t.Error("expected true for current page layout")
+	}
+	if hasProblemStatement("<html><body><main><h1>Калькулятор</h1><p>Не удалось загрузить условия задачи</p></main></body></html>") {
+		t.Error("expected false for unavailable statement")
 	}
 }
 

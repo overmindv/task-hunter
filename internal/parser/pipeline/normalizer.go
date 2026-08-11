@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 	"github.com/samber/lo"
 )
 

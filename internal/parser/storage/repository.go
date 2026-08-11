@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // Repository — интерфейс для работы с задачами в БД.

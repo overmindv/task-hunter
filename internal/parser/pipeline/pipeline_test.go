@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // update flag для перезаписи golden-файлов: go test -update
@@ -159,6 +159,31 @@ func TestExtractor_LeetCodeHTML(t *testing.T) {
 	expected := readGolden(t, goldenPath)
 	if got != expected {
 		t.Errorf("extracted content mismatch.\n  got:\n%s\n---\n  want:\n%s", got, expected)
+	}
+}
+
+// TestExtractor_CodeRunCurrentLayout проверяет стабильную область новой SPA-разметки.
+func TestExtractor_CodeRunCurrentLayout(t *testing.T) {
+	extractor := NewExtractor()
+	raw := domain.RawTask{
+		Source: domain.Source{
+			ID:   domain.SourceCodeRun,
+			Name: "CodeRun",
+			Type: domain.SourceTypeWebsite,
+		},
+		RawContent:  []byte(`<html><body><nav>Лишняя навигация</nav><main><div id="tab-description-panel"><h1 data-testid="problem-title">Калькулятор</h1><section><h2>Условие</h2><p>Вычислите значение выражения.</p></section></div><aside>Лишняя панель</aside></main></body></html>`),
+		SourceURL:   "https://coderun.yandex.ru/problem/calculator",
+		RetrievedAt: time.Now().UTC(),
+	}
+	task := &domain.Task{}
+	if err := extractor.Process(context.Background(), raw, task); err != nil {
+		t.Fatal(err)
+	}
+	if task.Title != "Калькулятор" || !strings.Contains(task.Description, "Вычислите значение выражения") {
+		t.Fatalf("unexpected CodeRun extraction: title=%q description=%q", task.Title, task.Description)
+	}
+	if strings.Contains(task.Description, "Лишняя") {
+		t.Fatalf("page chrome leaked into statement: %q", task.Description)
 	}
 }
 

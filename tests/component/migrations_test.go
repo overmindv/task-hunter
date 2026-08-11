@@ -1,10 +1,12 @@
+//go:build component
+
 package component
 
 import (
 	"database/sql"
 	"testing"
 
-	"diploma/internal/parser/storage"
+	"github.com/overmindv/task-hunter/internal/parser/storage"
 )
 
 // TestMigrations_Run проверяет накат миграций.
@@ -21,6 +23,9 @@ func TestMigrations_Run(t *testing.T) {
 	checkTableExists(t, db, "tasks")
 	checkTableExists(t, db, "examples")
 	checkTableExists(t, db, "task_tags")
+	checkTableExists(t, db, "collection_jobs")
+	checkTableExists(t, db, "collection_job_sources")
+	checkTableExists(t, db, "collection_checkpoints")
 }
 
 // TestMigrations_Idempotent проверяет идемпотентность миграций.

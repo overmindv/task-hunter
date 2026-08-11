@@ -1,42 +1,60 @@
-version: "3.9"
-
 services:
-  # --- База данных ---
   postgres:
-    image: postgres:16-alpine
-    container_name: taskcollector-pg
-    restart: unless-stopped
+    image: postgres:17-alpine
     environment:
-      POSTGRES_USER: parser
-      POSTGRES_PASSWORD: parser
-      POSTGRES_DB: tasks
+      POSTGRES_USER: task_hunter
+      POSTGRES_PASSWORD: ${TASK_HUNTER_POSTGRES_PASSWORD:?set TASK_HUNTER_POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: task_hunter
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U parser -d tasks"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U task_hunter -d task_hunter"]
+      interval: 2s
       timeout: 3s
-      retries: 5
+      retries: 30
 
-  # --- Сервис парсинга ---
-  parser:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: taskcollector-parser
-    restart: unless-stopped
+  migrate:
+    build: .
+    environment:
+      DATABASE_URL: "postgres://task_hunter:${TASK_HUNTER_POSTGRES_PASSWORD}@postgres:5432/task_hunter?sslmode=disable"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["goose -dir /app/migrations postgres \"$$DATABASE_URL\" up"]
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
+
+  task-hunter:
+    build: .
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      PARSER_DATABASE_DSN: "postgres://parser:parser@postgres:5432/tasks?sslmode=disable"
-      PARSER_DATABASE_MAXCONNS: "10"
-      PARSER_SCHEDULE_COLLECTCRON: "0 */6 * * *"
-      PARSER_SOURCE_LEETCODE_ENABLED: "true"
-      PARSER_SOURCE_CODEFORCES_ENABLED: "true"
-      PARSER_SOURCE_CODERUN_ENABLED: "true"
+      PARSER_DATABASE_DSN: "postgres://task_hunter:${TASK_HUNTER_POSTGRES_PASSWORD}@postgres:5432/task_hunter?sslmode=disable"
+      PARSER_HTTP_ADDRESS: ":8080"
+      PARSER_SCHEDULE_COLLECTCRON: "${TASK_HUNTER_CRON:-0 */6 * * *}"
+      PARSER_TASKSIT_URL: ${TASKS_IT_URL:?set TASKS_IT_URL in .env}
+      PARSER_TASKSIT_TOKEN: ${TASK_HUNTER_INGEST_TOKEN:?set TASK_HUNTER_INGEST_TOKEN in .env}
+      PARSER_SECURITY_GATEWAYTOKEN: ${TASK_HUNTER_GATEWAY_TOKEN:?set TASK_HUNTER_GATEWAY_TOKEN in .env}
+      PARSER_TELEGRAM_APIID: ${TASK_HUNTER_TELEGRAM_API_ID:?set TASK_HUNTER_TELEGRAM_API_ID in .env}
+      PARSER_TELEGRAM_APIHASH: ${TASK_HUNTER_TELEGRAM_API_HASH:?set TASK_HUNTER_TELEGRAM_API_HASH in .env}
+      PARSER_TELEGRAM_SESSIONPATH: /var/lib/task-hunter/telegram.session
+      PARSER_TELEGRAM_CHANNELS: ${TASK_HUNTER_TELEGRAM_CHANNELS:-analytic_postupashki,postupashki_ml,algoses}
+      PARSER_WORKER_DEFAULTLIMIT: ${TASK_HUNTER_DEFAULT_LIMIT:-100}
+    ports:
+      - "8080:8080"
+    volumes:
+      - telegram-session:/var/lib/task-hunter
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ready >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
-  pgdata:
+  postgres-data:
+  telegram-session:

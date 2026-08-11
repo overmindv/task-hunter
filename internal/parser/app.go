@@ -13,14 +13,14 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"diploma/config"
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/pipeline"
-	"diploma/internal/parser/source"
-	"diploma/internal/parser/source/codeforces"
-	"diploma/internal/parser/source/coderun"
-	"diploma/internal/parser/source/leetcode"
-	"diploma/internal/parser/storage"
+	"github.com/overmindv/task-hunter/config"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/pipeline"
+	"github.com/overmindv/task-hunter/internal/parser/source"
+	"github.com/overmindv/task-hunter/internal/parser/source/codeforces"
+	"github.com/overmindv/task-hunter/internal/parser/source/coderun"
+	"github.com/overmindv/task-hunter/internal/parser/source/leetcode"
+	"github.com/overmindv/task-hunter/internal/parser/storage"
 )
 
 // App — приложение модуля парсинга.

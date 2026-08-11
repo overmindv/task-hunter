@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 var update = flag.Bool("update", false, "update golden files")

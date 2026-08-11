@@ -15,14 +15,15 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/source"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/source"
 )
 
 // httpClient — интерфейс HTTP-клиента для мокания в тестах.
@@ -141,6 +142,27 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 	return tasks, nil
 }
 
+// CollectURL загружает одну задачу CodeRun без чтения каталога.
+func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTask, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "coderun.yandex.ru" {
+		return domain.RawTask{}, fmt.Errorf("coderun: invalid task URL")
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) != 2 || parts[0] != "problem" || parts[1] == "" {
+		return domain.RawTask{}, fmt.Errorf("coderun: unsupported task URL")
+	}
+	html, err := c.fetchProblemPage(ctx, parts[1])
+	if err != nil {
+		return domain.RawTask{}, fmt.Errorf("coderun: fetch direct task: %w", err)
+	}
+	if !hasProblemStatement(html) {
+		return domain.RawTask{}, fmt.Errorf("coderun: task statement is unavailable")
+	}
+
+	return c.problemToRawTask(catalogProblem{Slug: parts[1]}, html), nil
+}
+
 // fetchCatalog загружает и парсит страницу каталога задач.
 func (c *Collector) fetchCatalog(ctx context.Context) ([]catalogProblem, error) {
 	<-c.rateLimiter.C
@@ -257,7 +279,25 @@ func hasProblemStatement(html string) bool {
 	if err != nil {
 		return false
 	}
-	return doc.Find("h1.problem-title").Length() > 0
+	title := strings.TrimSpace(doc.Find("main h1, h1.problem-title, h1").First().Text())
+	if title == "" {
+		return false
+	}
+	pageText := strings.ToLower(strings.TrimSpace(doc.Find("main").Text()))
+	if pageText == "" {
+		pageText = strings.ToLower(strings.TrimSpace(doc.Find("body").Text()))
+	}
+	for _, unavailableText := range []string{
+		"страница не найдена",
+		"не удалось загрузить условия задачи",
+		"problem not found",
+	} {
+		if strings.Contains(pageText, unavailableText) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // --- Обработка ошибок ---

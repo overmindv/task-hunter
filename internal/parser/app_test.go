@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"diploma/config"
+	"github.com/overmindv/task-hunter/config"
 )
 
 // TestApp_NewApp проверяет создание App.

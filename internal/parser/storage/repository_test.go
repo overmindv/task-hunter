@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // mockRepo — минимальная реализация Repository для unit-тестов.

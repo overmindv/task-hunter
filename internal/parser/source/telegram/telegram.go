@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/source"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/source"
 )
 
 // Message — абстракция сообщения Telegram для тестирования.

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/pipeline"
-	"diploma/internal/parser/source"
-	"diploma/internal/parser/storage"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/pipeline"
+	"github.com/overmindv/task-hunter/internal/parser/source"
+	"github.com/overmindv/task-hunter/internal/parser/storage"
 )
 
 // --- Mocks ---

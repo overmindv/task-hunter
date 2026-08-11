@@ -8,11 +8,11 @@ import (
 	"github.com/go-jet/jet/v2/postgres"
 	"github.com/google/uuid"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 
 	// Сгенерированные go-jet модели и таблицы
-	"diploma/internal/parser/storage/jet/diploma_test/public/model"
-	"diploma/internal/parser/storage/jet/diploma_test/public/table"
+	"github.com/overmindv/task-hunter/internal/parser/storage/jet/diploma_test/public/model"
+	"github.com/overmindv/task-hunter/internal/parser/storage/jet/diploma_test/public/table"
 )
 
 // PostgresRepository — реализация Repository на PostgreSQL через go-jet.
