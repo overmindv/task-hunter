@@ -183,6 +183,24 @@ func TestFetchQuestionDetail(t *testing.T) {
 	}
 }
 
+// TestProblemToRawTaskKeepsStructuredFields проверяет данные реальной структуры Two Sum.
+func TestProblemToRawTaskKeepsStructuredFields(t *testing.T) {
+	var response gqlQuestionResponse
+	if err := json.Unmarshal([]byte(readFixture(t, "problem_two_sum.json")), &response); err != nil {
+		t.Fatalf("decode fixture: %v", err)
+	}
+	raw := NewCollector(domain.SourceLeetCode, &mockHTTPClient{}).problemToRawTask(response.Data.Question)
+	if raw.Title != "Two Sum" || raw.Difficulty != domain.DifficultyEasy {
+		t.Fatalf("unexpected metadata: title=%q difficulty=%v", raw.Title, raw.Difficulty)
+	}
+	if len(raw.Examples) != 3 || raw.Examples[0].Output != "[0,1]" {
+		t.Fatalf("unexpected examples: %#v", raw.Examples)
+	}
+	if len(raw.Constraints) != 4 || !strings.Contains(raw.Statement, "array of integers") {
+		t.Fatalf("unexpected content: constraints=%#v statement=%q", raw.Constraints, raw.Statement)
+	}
+}
+
 // TestCollect_WithProblemset проверяет полный сбор с problemset и деталями.
 func TestCollect_WithProblemset(t *testing.T) {
 	// Создадим кастомный обработчик через переопределение Do

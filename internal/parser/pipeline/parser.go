@@ -13,9 +13,6 @@ var (
 	// Пример: Input: ... Output: ... или Ввод: ... Вывод: ...
 	exampleRe = regexp.MustCompile(`(?i)(?:input|ввод)\s*:\s*(.+?)\s*(?:output|вывод)\s*:\s*(.+?)(?:\n|$)`)
 
-	// Полная строка примера: **Example 1:** или **Пример 1:**
-	exampleHeaderRe = regexp.MustCompile(`(?i)(?:\*\*)?(?:example|пример)\s+\d+\s*(?::|\.)\s*(?:\*\*)?`)
-
 	// Поиск ограничений: Constraints: / Ограничения:
 	constraintsHeaderRe = regexp.MustCompile(`(?i)(?:constraints|ограничения)\s*:`)
 
@@ -51,18 +48,22 @@ func (p *Parser) Process(ctx context.Context, raw domain.RawTask, task *domain.T
 	}
 
 	// 2. Извлекаем примеры
-	examples := extractExamples(text)
-	if len(examples) > 0 {
-		task.Examples = examples
+	if len(task.Examples) == 0 {
+		examples := extractExamples(text)
+		if len(examples) > 0 {
+			task.Examples = examples
+		}
 	}
 
-	// 3. Извлекаем ограничения
-	task.Constraints = extractConstraints(text)
+	if len(task.Constraints) == 0 {
+		task.Constraints = extractConstraints(text)
+	}
 
-	// 4. Извлекаем теги из текста (если есть метка Tags:)
-	tags := extractTags(text)
-	if len(tags) > 0 {
-		task.Tags = tags
+	if len(task.Tags) == 0 {
+		tags := extractTags(text)
+		if len(tags) > 0 {
+			task.Tags = tags
+		}
 	}
 
 	// 5. Очищаем описание от служебных секций
@@ -94,10 +95,9 @@ func extractTitle(text string) string {
 
 // extractExamples находит примеры в тексте задачи.
 func extractExamples(text string) []domain.Example {
-	var examples []domain.Example
-
 	// Ищем примеры по шаблону Input/Output
 	matches := exampleRe.FindAllStringSubmatch(text, -1)
+	examples := make([]domain.Example, 0, len(matches))
 	for _, match := range matches {
 		examples = append(examples, domain.Example{
 			Input:  strings.TrimSpace(match[1]),

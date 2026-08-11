@@ -17,12 +17,15 @@ func TestNormalizeWebsiteURL(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "codeforces", url: "https://codeforces.com/problemset/problem/4/A", source: "codeforces"},
+		{name: "codeforces contest", url: "https://codeforces.com/contest/4/problem/a?locale=ru", source: "codeforces"},
 		{name: "leetcode", url: "https://leetcode.com/problems/two-sum/", source: "leetcode"},
+		{name: "leetcode description", url: "https://www.leetcode.com/problems/two-sum/description/?envType=daily", source: "leetcode"},
 		{name: "coderun", url: "https://coderun.yandex.ru/problem/median", source: "coderun"},
 		{name: "http", url: "http://leetcode.com/problems/two-sum", wantErr: true},
 		{name: "userinfo", url: "https://codeforces.com@127.0.0.1/problemset/problem/4/A", wantErr: true},
 		{name: "subdomain", url: "https://codeforces.com.example.org/problemset/problem/4/A", wantErr: true},
-		{name: "query", url: "https://leetcode.com/problems/two-sum?next=https://127.0.0.1", wantErr: true},
+		{name: "port", url: "https://leetcode.com:8443/problems/two-sum", wantErr: true},
+		{name: "encoded slash", url: "https://leetcode.com/problems/two-sum%2Fadmin", wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

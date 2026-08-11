@@ -89,7 +89,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (*SchedulerSummary, error) {
 	// 2. Прогон через пайплайн и сохранение
 	for _, rts := range allRaw {
 		if err := ctx.Err(); err != nil {
-			slog.Warn("scheduler: context cancelled, stopping collection", "error", err)
+			slog.Warn("scheduler: context canceled, stopping collection", "error", err)
 			break
 		}
 

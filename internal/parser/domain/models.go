@@ -11,13 +11,20 @@ import (
 type TaskType int
 
 const (
-	TaskTypeAlgorithm      TaskType = iota // Алгоритмы
-	TaskTypeDataStructures                 // Структуры данных
-	TaskTypeDatabase                       // Базы данных
-	TaskTypeBackend                        // Бэкенд
-	TaskTypeInfrastructure                 // Поднятие инфраструктуры
-	TaskTypeTesting                        // Тестирование
-	TaskTypeCodeReview                     // Ревью кода
+	// TaskTypeAlgorithm обозначает алгоритмическую задачу.
+	TaskTypeAlgorithm TaskType = iota // Алгоритмы
+	// TaskTypeDataStructures обозначает задачу по структурам данных.
+	TaskTypeDataStructures // Структуры данных
+	// TaskTypeDatabase обозначает задачу по базам данных.
+	TaskTypeDatabase // Базы данных
+	// TaskTypeBackend обозначает backend-задачу.
+	TaskTypeBackend // Бэкенд
+	// TaskTypeInfrastructure обозначает инфраструктурную задачу.
+	TaskTypeInfrastructure // Поднятие инфраструктуры
+	// TaskTypeTesting обозначает задачу по тестированию.
+	TaskTypeTesting // Тестирование
+	// TaskTypeCodeReview обозначает задачу на ревью кода.
+	TaskTypeCodeReview // Ревью кода
 )
 
 // String возвращает человекочитаемое название типа задачи.
@@ -46,10 +53,14 @@ func (t TaskType) String() string {
 type Difficulty int
 
 const (
+	// DifficultyUnknown означает отсутствие точной сложности источника.
 	DifficultyUnknown Difficulty = iota // Не определена
-	DifficultyEasy                      // Лёгкая
-	DifficultyMedium                    // Средняя
-	DifficultyHard                      // Сложная
+	// DifficultyEasy обозначает лёгкую задачу.
+	DifficultyEasy // Лёгкая
+	// DifficultyMedium обозначает задачу средней сложности.
+	DifficultyMedium // Средняя
+	// DifficultyHard обозначает сложную задачу.
+	DifficultyHard // Сложная
 )
 
 // String возвращает человекочитаемое название сложности.
@@ -70,10 +81,14 @@ func (d Difficulty) String() string {
 type SourceType int
 
 const (
+	// SourceTypeTelegram обозначает сообщение Telegram.
 	SourceTypeTelegram SourceType = iota // Telegram-канал
-	SourceTypeWebsite                    // Веб-сайт
-	SourceTypeAPI                        // API (публичный)
-	SourceTypeManual                     // Ручной ввод
+	// SourceTypeWebsite обозначает HTML или Markdown сайта.
+	SourceTypeWebsite // Веб-сайт
+	// SourceTypeAPI обозначает ответ публичного API.
+	SourceTypeAPI // API (публичный)
+	// SourceTypeManual обозначает ручной ввод.
+	SourceTypeManual // Ручной ввод
 )
 
 // String возвращает человекочитаемое название типа источника.
@@ -96,13 +111,20 @@ func (s SourceType) String() string {
 type SourceID string
 
 const (
-	SourceTelegramAnalytics  SourceID = "telegram_analytics"  // @analytic_postupashki
-	SourceTelegramML         SourceID = "telegram_ml"         // @postupashki_ml
+	// SourceTelegramAnalytics обозначает канал аналитических задач.
+	SourceTelegramAnalytics SourceID = "telegram_analytics" // @analytic_postupashki
+	// SourceTelegramML обозначает канал ML-задач.
+	SourceTelegramML SourceID = "telegram_ml" // @postupashki_ml
+	// SourceTelegramAlgorithms обозначает канал алгоритмов.
 	SourceTelegramAlgorithms SourceID = "telegram_algorithms" // @algoses
-	SourceLeetCode           SourceID = "leetcode"            // leetcode.com
-	SourceCodeforces         SourceID = "codeforces"          // codeforces.com
-	SourceCodeRun            SourceID = "coderun"             // coderun.yandex.ru
-	SourceManual             SourceID = "manual"              // Ручной ввод
+	// SourceLeetCode обозначает leetcode.com.
+	SourceLeetCode SourceID = "leetcode" // leetcode.com
+	// SourceCodeforces обозначает codeforces.com.
+	SourceCodeforces SourceID = "codeforces" // codeforces.com
+	// SourceCodeRun обозначает coderun.yandex.ru.
+	SourceCodeRun SourceID = "coderun" // coderun.yandex.ru
+	// SourceManual обозначает ручной источник.
+	SourceManual SourceID = "manual" // Ручной ввод
 )
 
 // Tag — тематический тег задачи.
@@ -125,10 +147,16 @@ type Example struct {
 // RawTask — сырые данные, полученные от адаптера источника.
 // Используется как входной формат для пайплайна обработки.
 type RawTask struct {
-	Source      Source    // Источник
-	RawContent  []byte    // Оригинальное содержимое (текст, HTML, JSON)
-	SourceURL   string    // Прямая ссылка на оригинал
-	RetrievedAt time.Time // Когда получены данные
+	Source      Source     // Источник
+	RawContent  []byte     // Оригинальное содержимое (текст, HTML, JSON)
+	SourceURL   string     // Прямая ссылка на оригинал
+	RetrievedAt time.Time  // Когда получены данные
+	Title       string     // Заголовок, извлечённый адаптером источника
+	Statement   string     // Условие, извлечённое адаптером источника
+	Examples    []Example  // Открытые примеры из источника
+	Constraints []string   // Ограничения из источника
+	Difficulty  Difficulty // Сложность из источника
+	Tags        []Tag      // Теги из источника
 }
 
 // Task — нормализованная задача в едином формате платформы.

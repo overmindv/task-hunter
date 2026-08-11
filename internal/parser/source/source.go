@@ -44,7 +44,7 @@ func NewManager(collectors ...Collector) *Manager {
 // CollectAll собирает задачи со всех коллекторов.
 // Ошибка в одном коллекторе не останавливает сбор с остальных.
 func (m *Manager) CollectAll(ctx context.Context) []CollectResult {
-	var results []CollectResult
+	results := make([]CollectResult, 0, len(m.collectors))
 
 	for id, c := range m.collectors {
 		tasks, err := c.Collect(ctx)

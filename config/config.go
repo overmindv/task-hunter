@@ -17,6 +17,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+const defaultCodeforcesReaderURL = "https://r.jina.ai/http://codeforces.com"
+
 // Config — корневая конфигурация модуля парсинга.
 type Config struct {
 	Database DatabaseConfig
@@ -27,6 +29,12 @@ type Config struct {
 	Security SecurityConfig
 	Worker   WorkerConfig
 	Telegram TelegramConfig
+	Website  WebsiteConfig
+}
+
+// WebsiteConfig задаёт внешние адаптеры для публичных страниц задач.
+type WebsiteConfig struct {
+	CodeforcesReaderURL string `envconfig:"CODEFORCESREADERURL" default:"https://r.jina.ai/http://codeforces.com"`
 }
 
 // HTTPConfig задаёт внутренний HTTP API task-hunter.
@@ -187,7 +195,7 @@ func (c *Config) ValidateRuntime() error {
 		return fmt.Errorf("PARSER_SECURITY_GATEWAYTOKEN is required")
 	}
 	if c.Telegram.Enabled && (c.Telegram.APIID == 0 || c.Telegram.APIHash == "" || c.Telegram.SessionPath == "" || len(c.Telegram.Channels) == 0) {
-		return fmt.Errorf("Telegram API credentials, session path and channels are required")
+		return fmt.Errorf("telegram API credentials, session path and channels are required")
 	}
 	if c.Worker.DefaultLimit < 1 || c.Worker.DefaultLimit > 500 {
 		return fmt.Errorf("PARSER_WORKER_DEFAULTLIMIT must be between 1 and 500")
@@ -198,6 +206,13 @@ func (c *Config) ValidateRuntime() error {
 	if c.HTTP.ReadTimeout <= 0 || c.HTTP.WriteTimeout <= 0 {
 		return fmt.Errorf("HTTP timeouts must be positive")
 	}
+	if c.Website.CodeforcesReaderURL == "" {
+		c.Website.CodeforcesReaderURL = defaultCodeforcesReaderURL
+	}
+	readerURL, err := url.Parse(c.Website.CodeforcesReaderURL)
+	if err != nil || readerURL.Scheme != "https" || readerURL.Host == "" {
+		return fmt.Errorf("PARSER_WEBSITE_CODEFORCESREADERURL must be an absolute HTTPS URL")
+	}
 
 	if !c.Telegram.Enabled {
 		return nil
@@ -207,10 +222,10 @@ func (c *Config) ValidateRuntime() error {
 	for _, rawChannel := range c.Telegram.Channels {
 		channel := strings.TrimPrefix(strings.TrimSpace(rawChannel), "@")
 		if channel == "" {
-			return fmt.Errorf("Telegram channels must not be empty")
+			return fmt.Errorf("telegram channels must not be empty")
 		}
 		if _, exists := seenChannels[channel]; exists {
-			return fmt.Errorf("Telegram channel %q is duplicated", channel)
+			return fmt.Errorf("telegram channel %q is duplicated", channel)
 		}
 		seenChannels[channel] = struct{}{}
 	}

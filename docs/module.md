@@ -28,10 +28,10 @@ TaskCollector — компонент образовательной платфо
 
 | Источник | Протокол | Формат | Rate limit | Статус |
 |----------|----------|--------|------------|--------|
-| **Codeforces** | REST API + HTTP | JSON (API) + HTML (страница) | 1 req/2s | ✅ |
+| **Codeforces** | HTTP + Reader fallback | HTML или Markdown условия | 1 req/2s | ✅ |
 | **LeetCode** | GraphQL API | JSON (условие как HTML) | 1 req/3s | ✅ |
-| **CodeRun (Яндекс)** | HTTP + HTML | HTML (goquery) | 1 req/1s | ✅ |
-| **Telegram-каналы** | MTProto (gotd/td) | Текст + медиа | настраиваемый | 🚧 |
+| **CodeRun (Яндекс)** | HTTP + `__NEXT_DATA__` | JSON условия + sample-файлы | 1 req/1s | ✅ |
+| **Telegram-каналы** | MTProto (gotd/td) | Текст сообщений | настраиваемый | опционально |
 
 ## 4. Поток данных
 
@@ -111,11 +111,11 @@ type Collector interface {
 5. User-Agent: браузерный (Mozilla/5.0 ... Chrome/...)
 
 #### CodeRun (Яндекс)
-1. GET-запрос к `https://coderun.yandex.ru/catalog`
-2. Парсинг HTML через goquery (селектор `.problem-list .problem-item a.problem-title`)
-3. Для каждой ссылки: GET страницы `https://coderun.yandex.ru/problem/{slug}`
-4. Проверка наличия условия (селектор `h1.problem-title`)
-5. Rate limit: 1 запрос в 1.1 секунды
+1. GET страницы `https://coderun.yandex.ru/problem/{slug}`.
+2. Поиск объекта задачи в `__NEXT_DATA__`.
+3. Загрузка опубликованного JSON условия и открытых sample input/output из доверенного хранилища Яндекса.
+4. Сохранение заголовка, сложности, тегов, условия, ограничений и примеров.
+5. Ссылки на скрытые judge-тесты отсутствуют и не запрашиваются.
 
 #### Telegram
 1. MTProto-соединение через библиотеку gotd/td

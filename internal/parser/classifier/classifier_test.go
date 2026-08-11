@@ -161,6 +161,21 @@ func TestClassify_WithTags(t *testing.T) {
 	}
 }
 
+// TestClassify_PreservesSourceDifficulty проверяет приоритет точной метки источника.
+func TestClassify_PreservesSourceDifficulty(t *testing.T) {
+	task := &domain.Task{
+		Title:       "A very long easy task",
+		Description: strings.Repeat("description ", 300),
+		Difficulty:  domain.DifficultyEasy,
+	}
+	if err := NewRuleBasedClassifier().Classify(context.Background(), task); err != nil {
+		t.Fatal(err)
+	}
+	if task.Difficulty != domain.DifficultyEasy {
+		t.Fatalf("source difficulty was overwritten: %v", task.Difficulty)
+	}
+}
+
 // TestClassify_PipelineProcessor проверяет, что RuleBasedClassifier работает как pipeline.Processor.
 func TestClassify_PipelineProcessor(t *testing.T) {
 	c := NewRuleBasedClassifier()

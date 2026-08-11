@@ -21,7 +21,7 @@ func RunMigrations(dbURL string, migrationsDir string) error {
 	if err != nil {
 		return fmt.Errorf("open db for migrations: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("ping db for migrations: %w", err)
@@ -41,7 +41,7 @@ func RunMigrationsDown(dbURL string, migrationsDir string) error {
 	if err != nil {
 		return fmt.Errorf("open db for rollback: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := goose.DownTo(db, migrationsDir, 0); err != nil {
 		return fmt.Errorf("rollback migrations: %w", err)

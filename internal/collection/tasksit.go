@@ -94,7 +94,7 @@ func (c *TasksITClient) doImport(ctx context.Context, body []byte) ([]ImportResu
 	if err != nil {
 		return nil, true, fmt.Errorf("call tasks-it: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {

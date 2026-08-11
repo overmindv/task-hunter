@@ -40,6 +40,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
+
 	"github.com/overmindv/task-hunter/internal/parser/domain"
 	"github.com/overmindv/task-hunter/internal/parser/source"
 )
@@ -137,12 +139,14 @@ type lcProblemBrief struct {
 }
 
 type lcQuestionDetail struct {
-	QuestionID string  `json:"questionId"`
-	Title      string  `json:"title"`
-	TitleSlug  string  `json:"titleSlug"`
-	Difficulty string  `json:"difficulty"`
-	Content    string  `json:"content"` // HTML-условие задачи
-	TopicTags  []lcTag `json:"topicTags"`
+	QuestionID       string  `json:"questionId"`
+	Title            string  `json:"title"`
+	TitleSlug        string  `json:"titleSlug"`
+	Difficulty       string  `json:"difficulty"`
+	Content          string  `json:"content"`
+	TopicTags        []lcTag `json:"topicTags"`
+	ExampleTestcases string  `json:"exampleTestcases"`
+	SampleTestCase   string  `json:"sampleTestCase"`
 }
 
 type lcTag struct {
@@ -173,6 +177,8 @@ const questionQuery = `query questionData($titleSlug: String!) {
     difficulty
     content
     topicTags { name }
+	exampleTestcases
+	sampleTestCase
   }
 }`
 
@@ -315,6 +321,7 @@ func (c *Collector) doGQL(ctx context.Context, req gqlRequest) ([]byte, error) {
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Origin", c.baseURL)
 	httpReq.Header.Set("User-Agent", c.userAgent)
 	httpReq.Header.Set("Referer", c.baseURL+"/problemset/")
 
@@ -322,7 +329,7 @@ func (c *Collector) doGQL(ctx context.Context, req gqlRequest) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusForbidden {
 		return nil, fmt.Errorf("access denied (403) — possible captcha or IP ban")
@@ -342,12 +349,11 @@ func (c *Collector) doGQL(ctx context.Context, req gqlRequest) ([]byte, error) {
 // problemToRawTask преобразует lcQuestionDetail в RawTask.
 func (c *Collector) problemToRawTask(q *lcQuestionDetail) domain.RawTask {
 	problemURL := fmt.Sprintf("%s/problems/%s", c.baseURL, q.TitleSlug)
-
-	// Теги как domain.Tag
 	tags := make([]domain.Tag, len(q.TopicTags))
 	for i, t := range q.TopicTags {
 		tags[i] = domain.Tag(t.Name)
 	}
+	statement, examples, constraints := parseQuestionContent(q.Content)
 
 	return domain.RawTask{
 		Source: domain.Source{
@@ -358,7 +364,89 @@ func (c *Collector) problemToRawTask(q *lcQuestionDetail) domain.RawTask {
 		RawContent:  []byte(q.Content),
 		SourceURL:   problemURL,
 		RetrievedAt: time.Now(),
+		Title:       q.Title,
+		Statement:   statement,
+		Examples:    examples,
+		Constraints: constraints,
+		Difficulty:  MapDifficulty(q.Difficulty),
+		Tags:        tags,
 	}
+}
+
+// parseQuestionContent извлекает условие, открытые примеры и ограничения из HTML LeetCode.
+func parseQuestionContent(content string) (string, []domain.Example, []string) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		return strings.TrimSpace(content), nil, nil
+	}
+
+	examples := make([]domain.Example, 0)
+	doc.Find("pre").Each(func(_ int, selection *goquery.Selection) {
+		if example, ok := parseExample(selection.Text()); ok {
+			examples = append(examples, example)
+		}
+	})
+
+	constraints := make([]string, 0)
+	doc.Find("ul").EachWithBreak(func(_ int, selection *goquery.Selection) bool {
+		previous := strings.ToLower(cleanText(selection.Prev().Text()))
+		if !strings.Contains(previous, "constraints") {
+			return true
+		}
+		selection.Find("li").Each(func(_ int, item *goquery.Selection) {
+			if value := cleanText(item.Text()); value != "" {
+				constraints = append(constraints, value)
+			}
+		})
+
+		return false
+	})
+
+	parts := make([]string, 0)
+	doc.Find("body").Children().EachWithBreak(func(_ int, selection *goquery.Selection) bool {
+		value := cleanText(selection.Text())
+		lower := strings.ToLower(value)
+		if strings.HasPrefix(lower, "example ") || lower == "constraints:" || lower == "constraints" {
+			return false
+		}
+		if value != "" {
+			parts = append(parts, value)
+		}
+
+		return true
+	})
+
+	return strings.Join(parts, "\n\n"), examples, constraints
+}
+
+// parseExample разбирает один открытый блок Input/Output.
+func parseExample(value string) (domain.Example, bool) {
+	lower := strings.ToLower(value)
+	inputIndex := strings.Index(lower, "input:")
+	outputIndex := strings.Index(lower, "output:")
+	if inputIndex < 0 || outputIndex <= inputIndex {
+		return domain.Example{}, false
+	}
+	input := value[inputIndex+len("input:") : outputIndex]
+	output := value[outputIndex+len("output:"):]
+	explanation := ""
+	if explanationIndex := strings.Index(strings.ToLower(output), "explanation:"); explanationIndex >= 0 {
+		explanation = output[explanationIndex+len("explanation:"):]
+		output = output[:explanationIndex]
+	}
+
+	return domain.Example{
+		Input:       strings.TrimSpace(input),
+		Output:      strings.TrimSpace(output),
+		Explanation: strings.TrimSpace(explanation),
+	}, strings.TrimSpace(input) != "" && strings.TrimSpace(output) != ""
+}
+
+// cleanText схлопывает служебные HTML-пробелы, сохраняя читаемый текст.
+func cleanText(value string) string {
+	value = strings.ReplaceAll(value, "\u00a0", " ")
+
+	return strings.Join(strings.Fields(value), " ")
 }
 
 // MapDifficulty преобразует строковую сложность LeetCode в domain.Difficulty.

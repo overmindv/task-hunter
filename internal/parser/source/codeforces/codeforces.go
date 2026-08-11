@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/overmindv/task-hunter/internal/parser/domain"
 	"github.com/overmindv/task-hunter/internal/parser/source"
 )
@@ -39,6 +40,7 @@ type Collector struct {
 	rateLimiter *time.Ticker
 	userAgent   string
 	baseURL     string
+	readerURL   string
 	mu          sync.Mutex
 }
 
@@ -52,6 +54,7 @@ func NewCollector(id domain.SourceID, client httpClient) *Collector {
 		rateLimiter: time.NewTicker(2100 * time.Millisecond), // 2.1s > 2s requirement
 		userAgent:   "diploma-parser/1.0",
 		baseURL:     "https://codeforces.com",
+		readerURL:   "https://r.jina.ai/http://codeforces.com",
 	}
 }
 
@@ -65,6 +68,13 @@ func (c *Collector) WithMinInterval(d time.Duration) *Collector {
 // WithLanguage устанавливает язык задач.
 func (c *Collector) WithLanguage(lang string) *Collector {
 	c.language = lang
+	return c
+}
+
+// WithReaderURL меняет адрес fallback Reader API для тестов и self-hosted установки.
+func (c *Collector) WithReaderURL(rawURL string) *Collector {
+	c.readerURL = strings.TrimSuffix(rawURL, "/")
+
 	return c
 }
 
@@ -159,11 +169,21 @@ func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTa
 		return domain.RawTask{}, fmt.Errorf("codeforces: invalid problem identifier")
 	}
 	html, err := c.fetchProblemPage(ctx, contestID, parts[3])
-	if err != nil {
-		return domain.RawTask{}, fmt.Errorf("codeforces: fetch direct task: %w", err)
+	directTask := c.problemToRawTask(cfProblem{ContestID: contestID, Index: parts[3]}, html)
+	if err == nil && directTask.Title != "" && directTask.Statement != "" && !detectBlockingPage(html) {
+		return directTask, nil
 	}
 
-	return c.problemToRawTask(cfProblem{ContestID: contestID, Index: parts[3]}, html), nil
+	markdown, readerErr := c.fetchReaderProblem(ctx, contestID, parts[3])
+	if readerErr != nil {
+		if err != nil {
+			return domain.RawTask{}, fmt.Errorf("codeforces: direct request failed: %w; reader fallback failed: %v", err, readerErr)
+		}
+
+		return domain.RawTask{}, fmt.Errorf("codeforces: blocking page; reader fallback failed: %w", readerErr)
+	}
+
+	return c.readerProblemToRawTask(contestID, parts[3], markdown)
 }
 
 // fetchProblems получает список задач через API.
@@ -183,7 +203,7 @@ func (c *Collector) fetchProblems(ctx context.Context) ([]cfProblem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
@@ -221,7 +241,7 @@ func (c *Collector) fetchProblemPage(ctx context.Context, contestID int, index s
 	if err != nil {
 		return "", fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
@@ -234,10 +254,46 @@ func (c *Collector) fetchProblemPage(ctx context.Context, contestID int, index s
 	return string(body), nil
 }
 
+// fetchReaderProblem получает только блок условия через Reader API без API-ключа.
+func (c *Collector) fetchReaderProblem(ctx context.Context, contestID int, index string) (string, error) {
+	<-c.rateLimiter.C
+
+	pageURL := fmt.Sprintf("%s/problemset/problem/%d/%s", c.readerURL, contestID, index)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create reader request: %w", err)
+	}
+	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("X-Target-Selector", ".problem-statement")
+	req.Header.Set("X-Return-Format", "markdown")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("reader request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("reader returned status %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return "", fmt.Errorf("read reader response: %w", err)
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		return "", fmt.Errorf("reader returned empty statement")
+	}
+
+	return string(body), nil
+}
+
 // problemToRawTask преобразует cfProblem в RawTask.
 func (c *Collector) problemToRawTask(p cfProblem, html string) domain.RawTask {
 	// URL задачи
 	problemURL := fmt.Sprintf("%s/problemset/problem/%d/%s", c.baseURL, p.ContestID, p.Index)
+	title, statement, examples, constraints := parseProblemHTML(html)
+	if title == "" {
+		title = p.Name
+	}
 
 	// Теги как domain.Tag
 	tags := make([]domain.Tag, len(p.Tags))
@@ -254,7 +310,208 @@ func (c *Collector) problemToRawTask(p cfProblem, html string) domain.RawTask {
 		RawContent:  []byte(html),
 		SourceURL:   problemURL,
 		RetrievedAt: time.Now(),
+		Title:       title,
+		Statement:   statement,
+		Examples:    examples,
+		Constraints: constraints,
+		Difficulty:  mapRatingToDifficulty(p.Rating),
+		Tags:        tags,
 	}
+}
+
+// readerProblemToRawTask преобразует чистый Markdown fallback в структурированную задачу.
+func (c *Collector) readerProblemToRawTask(contestID int, index, markdown string) (domain.RawTask, error) {
+	title, statement, examples, constraints := parseReaderMarkdown(markdown)
+	if title == "" || statement == "" {
+		return domain.RawTask{}, fmt.Errorf("codeforces: reader response has no task statement")
+	}
+
+	return domain.RawTask{
+		Source: domain.Source{
+			ID:   c.id,
+			Name: "Codeforces",
+			Type: domain.SourceTypeWebsite,
+		},
+		RawContent:  []byte(markdown),
+		SourceURL:   fmt.Sprintf("%s/problemset/problem/%d/%s", c.baseURL, contestID, index),
+		RetrievedAt: time.Now(),
+		Title:       title,
+		Statement:   statement,
+		Examples:    examples,
+		Constraints: constraints,
+	}, nil
+}
+
+// detectBlockingPage распознаёт Cloudflare и JavaScript proof-of-work страницы.
+func detectBlockingPage(content string) bool {
+	lower := strings.ToLower(content)
+
+	return strings.Contains(lower, "cf-mitigated") ||
+		strings.Contains(lower, "browser is being checked") ||
+		strings.Contains(lower, "just a moment")
+}
+
+// parseReaderMarkdown разбирает ограниченный блок .problem-statement Codeforces.
+func parseReaderMarkdown(markdown string) (string, string, []domain.Example, []string) {
+	if index := strings.Index(markdown, "Markdown Content:"); index >= 0 {
+		markdown = markdown[index+len("Markdown Content:"):]
+	}
+	lines := compactLines(markdown)
+	if len(lines) == 0 {
+		return "", "", nil, nil
+	}
+	title := lines[0]
+	contentStart := indexAfter(lines, "stdout")
+	if contentStart < 0 {
+		contentStart = 1
+	}
+	examplesStart := indexOf(lines, "Examples", contentStart)
+	statementEnd := len(lines)
+	if examplesStart >= 0 {
+		statementEnd = examplesStart
+	}
+	constraints := make([]string, 0, 2)
+	if timeIndex := indexOf(lines, "time limit per test", 0); timeIndex >= 0 && timeIndex+1 < len(lines) {
+		constraints = append(constraints, "time limit per test: "+lines[timeIndex+1])
+	}
+	if memoryIndex := indexOf(lines, "memory limit per test", 0); memoryIndex >= 0 && memoryIndex+1 < len(lines) {
+		constraints = append(constraints, "memory limit per test: "+lines[memoryIndex+1])
+	}
+
+	examples := make([]domain.Example, 0)
+	if examplesStart >= 0 {
+		examples = parseReaderExamples(lines[examplesStart+1:])
+	}
+
+	return title, strings.Join(lines[contentStart:statementEnd], "\n\n"), examples, constraints
+}
+
+// parseProblemHTML извлекает условие, ограничения и примеры из настоящей страницы Codeforces.
+func parseProblemHTML(content string) (string, string, []domain.Example, []string) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		return "", "", nil, nil
+	}
+	problem := doc.Find(".problem-statement").First()
+	if problem.Length() == 0 {
+		return "", "", nil, nil
+	}
+	title := cleanHTMLText(problem.Find(".title").First())
+	statementNode := problem.Clone()
+	statementNode.Find(".header, .input-specification, .output-specification, .sample-tests, .note").Remove()
+	statement := cleanHTMLText(statementNode)
+	constraints := make([]string, 0, 2)
+	problem.Find(".time-limit, .memory-limit").Each(func(_ int, selection *goquery.Selection) {
+		if value := cleanHTMLText(selection); value != "" {
+			constraints = append(constraints, value)
+		}
+	})
+
+	return title, statement, parseHTMLExamples(problem), constraints
+}
+
+// parseHTMLExamples сопоставляет входы и выходы примеров по их позиции.
+func parseHTMLExamples(problem *goquery.Selection) []domain.Example {
+	inputs := make([]string, 0)
+	outputs := make([]string, 0)
+	problem.Find(".sample-test .input pre").Each(func(_ int, selection *goquery.Selection) {
+		inputs = append(inputs, cleanHTMLText(selection))
+	})
+	problem.Find(".sample-test .output pre").Each(func(_ int, selection *goquery.Selection) {
+		outputs = append(outputs, cleanHTMLText(selection))
+	})
+	examples := make([]domain.Example, 0, min(len(inputs), len(outputs)))
+	for index := 0; index < len(inputs) && index < len(outputs); index++ {
+		if inputs[index] != "" && outputs[index] != "" {
+			examples = append(examples, domain.Example{Input: inputs[index], Output: outputs[index]})
+		}
+	}
+
+	return examples
+}
+
+// cleanHTMLText сохраняет переносы из pre и убирает лишние пробелы HTML.
+func cleanHTMLText(selection *goquery.Selection) string {
+	clone := selection.Clone()
+	clone.Find("br").ReplaceWithHtml("\n")
+	lines := make([]string, 0)
+	for _, line := range strings.Split(clone.Text(), "\n") {
+		if line = strings.Join(strings.Fields(line), " "); line != "" {
+			lines = append(lines, line)
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// parseReaderExamples извлекает пары Input/Output после секции Examples.
+func parseReaderExamples(lines []string) []domain.Example {
+	examples := make([]domain.Example, 0)
+	for index := 0; index < len(lines); {
+		if !strings.EqualFold(lines[index], "Input") {
+			index++
+			continue
+		}
+		index++
+		if index < len(lines) && strings.EqualFold(lines[index], "Copy") {
+			index++
+		}
+		inputStart := index
+		for index < len(lines) && !strings.EqualFold(lines[index], "Output") {
+			index++
+		}
+		if index >= len(lines) {
+			break
+		}
+		input := strings.Join(lines[inputStart:index], "\n")
+		index++
+		if index < len(lines) && strings.EqualFold(lines[index], "Copy") {
+			index++
+		}
+		outputStart := index
+		for index < len(lines) && !strings.EqualFold(lines[index], "Input") && !strings.EqualFold(lines[index], "Note") {
+			index++
+		}
+		output := strings.Join(lines[outputStart:index], "\n")
+		if strings.TrimSpace(input) != "" && strings.TrimSpace(output) != "" {
+			examples = append(examples, domain.Example{Input: input, Output: output})
+		}
+	}
+
+	return examples
+}
+
+// compactLines удаляет пустые строки Markdown и внешние пробелы.
+func compactLines(value string) []string {
+	result := make([]string, 0)
+	for _, line := range strings.Split(value, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			result = append(result, line)
+		}
+	}
+
+	return result
+}
+
+// indexOf ищет точную строку без учёта регистра.
+func indexOf(lines []string, value string, start int) int {
+	for index := start; index < len(lines); index++ {
+		if strings.EqualFold(lines[index], value) {
+			return index
+		}
+	}
+
+	return -1
+}
+
+// indexAfter возвращает позицию после найденной строки.
+func indexAfter(lines []string, value string) int {
+	index := indexOf(lines, value, 0)
+	if index < 0 || index+1 >= len(lines) {
+		return -1
+	}
+
+	return index + 1
 }
 
 // mapRatingToDifficulty преобразует рейтинг Codeforces в Difficulty.

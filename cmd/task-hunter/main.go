@@ -44,12 +44,12 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	store := collection.NewStore(db)
 
 	telegramReader := collection.NewMTProtoReader(cfg.Telegram.APIID, cfg.Telegram.APIHash, cfg.Telegram.SessionPath)
-	websiteReader := collection.NewDirectWebsiteReader(&http.Client{Timeout: 30 * time.Second})
+	websiteReader := collection.NewDirectWebsiteReader(&http.Client{Timeout: 30 * time.Second}).WithCodeforcesReaderURL(cfg.Website.CodeforcesReaderURL)
 	defer websiteReader.Close()
 
 	sink := collection.NewTasksITClient(cfg.TasksIT.URL, cfg.TasksIT.Token, cfg.TasksIT.Timeout, cfg.TasksIT.MaxRetries)

@@ -14,21 +14,31 @@ import (
 type JobStatus string
 
 const (
-	JobQueued    JobStatus = "queued"
-	JobRunning   JobStatus = "running"
+	// JobQueued означает, что задание ожидает worker.
+	JobQueued JobStatus = "queued"
+	// JobRunning означает, что задание обрабатывается.
+	JobRunning JobStatus = "running"
+	// JobSucceeded означает полное успешное завершение.
 	JobSucceeded JobStatus = "succeeded"
-	JobPartial   JobStatus = "partial"
-	JobFailed    JobStatus = "failed"
+	// JobPartial означает частичный успех источников.
+	JobPartial JobStatus = "partial"
+	// JobFailed означает отсутствие успешных источников.
+	JobFailed JobStatus = "failed"
 )
 
 // SourceStatus описывает результат отдельного входа задания.
 type SourceStatus string
 
 const (
-	SourceQueued    SourceStatus = "queued"
-	SourceRunning   SourceStatus = "running"
+	// SourceQueued означает, что источник ожидает обработки.
+	SourceQueued SourceStatus = "queued"
+	// SourceRunning означает, что источник обрабатывается.
+	SourceRunning SourceStatus = "running"
+	// SourceSucceeded означает успешную обработку источника.
 	SourceSucceeded SourceStatus = "succeeded"
-	SourceFailed    SourceStatus = "failed"
+	// SourceFailed означает ошибку отдельного источника.
+	SourceFailed SourceStatus = "failed"
+	// SourceTruncated означает достижение лимита элементов.
 	SourceTruncated SourceStatus = "truncated"
 )
 
@@ -142,7 +152,7 @@ func ValidateCreateInput(input CreateInput, allowedChannels map[string]struct{},
 	for _, channel := range input.TelegramChannels {
 		channel = strings.TrimPrefix(strings.TrimSpace(channel), "@")
 		if _, ok := allowedChannels[channel]; !ok {
-			return fmt.Errorf("Telegram-канал %q не входит в allowlist", channel)
+			return fmt.Errorf("telegram-канал %q не входит в allowlist", channel)
 		}
 	}
 	for _, rawURL := range input.WebsiteURLs {
@@ -157,23 +167,76 @@ func ValidateCreateInput(input CreateInput, allowedChannels map[string]struct{},
 // NormalizeWebsiteURL валидирует URL и возвращает источник с канонической ссылкой.
 func NormalizeWebsiteURL(rawURL string) (string, string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || strings.ToLower(parsed.Scheme) != "https" || parsed.User != nil || parsed.Port() != "" {
 		return "", "", fmt.Errorf("некорректный HTTPS URL %q", rawURL)
 	}
 
 	host := strings.ToLower(parsed.Hostname())
-	path := strings.TrimSuffix(parsed.EscapedPath(), "/")
-	patterns := []struct{ host, source, prefix string }{
-		{"codeforces.com", "codeforces", "/problemset/problem/"},
-		{"leetcode.com", "leetcode", "/problems/"},
-		{"coderun.yandex.ru", "coderun", "/problem/"},
-	}
+	host = strings.TrimPrefix(host, "www.")
+	parts := splitURLPath(parsed.Path)
 
-	for _, pattern := range patterns {
-		if host == pattern.host && strings.HasPrefix(path, pattern.prefix) && len(strings.TrimPrefix(path, pattern.prefix)) > 0 {
-			return pattern.source, "https://" + pattern.host + path, nil
+	switch host {
+	case "codeforces.com":
+		if len(parts) == 4 && parts[0] == "problemset" && parts[1] == "problem" && isDigits(parts[2]) && isProblemIndex(parts[3]) {
+			return "codeforces", fmt.Sprintf("https://codeforces.com/problemset/problem/%s/%s", parts[2], strings.ToUpper(parts[3])), nil
+		}
+		if len(parts) == 4 && parts[0] == "contest" && isDigits(parts[1]) && parts[2] == "problem" && isProblemIndex(parts[3]) {
+			return "codeforces", fmt.Sprintf("https://codeforces.com/problemset/problem/%s/%s", parts[1], strings.ToUpper(parts[3])), nil
+		}
+	case "leetcode.com":
+		if len(parts) >= 2 && len(parts) <= 3 && parts[0] == "problems" && isSlug(parts[1]) && (len(parts) == 2 || parts[2] == "description") {
+			return "leetcode", "https://leetcode.com/problems/" + strings.ToLower(parts[1]), nil
+		}
+	case "coderun.yandex.ru":
+		if len(parts) == 2 && parts[0] == "problem" && isSlug(parts[1]) {
+			return "coderun", "https://coderun.yandex.ru/problem/" + strings.ToLower(parts[1]), nil
 		}
 	}
 
 	return "", "", fmt.Errorf("URL не принадлежит поддерживаемому источнику")
+}
+
+// splitURLPath возвращает непустые сегменты пути без завершающего слеша.
+func splitURLPath(path string) []string {
+	result := make([]string, 0)
+	for _, part := range strings.Split(strings.Trim(path, "/"), "/") {
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+
+	return result
+}
+
+// isSlug разрешает безопасные slug из букв, цифр, дефиса и подчёркивания.
+func isSlug(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, symbol := range value {
+		if (symbol < 'a' || symbol > 'z') && (symbol < 'A' || symbol > 'Z') && (symbol < '0' || symbol > '9') && symbol != '-' && symbol != '_' {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isDigits проверяет числовой идентификатор соревнования.
+func isDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, symbol := range value {
+		if symbol < '0' || symbol > '9' {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isProblemIndex проверяет короткий буквенно-цифровой индекс задачи.
+func isProblemIndex(value string) bool {
+	return len(value) <= 8 && isSlug(value)
 }

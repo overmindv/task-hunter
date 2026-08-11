@@ -134,7 +134,11 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 			continue
 		}
 
-		rawTask := c.problemToRawTask(p, html)
+		rawTask, err := c.problemToStructuredRawTask(ctx, p, html)
+		if err != nil {
+			slog.Warn("coderun: failed to load structured problem", "slug", p.Slug, "error", err)
+			continue
+		}
 		tasks = append(tasks, rawTask)
 		c.lastURLs[p.Slug] = struct{}{}
 	}
@@ -160,7 +164,12 @@ func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTa
 		return domain.RawTask{}, fmt.Errorf("coderun: task statement is unavailable")
 	}
 
-	return c.problemToRawTask(catalogProblem{Slug: parts[1]}, html), nil
+	raw, err := c.problemToStructuredRawTask(ctx, catalogProblem{Slug: parts[1]}, html)
+	if err != nil {
+		return domain.RawTask{}, fmt.Errorf("coderun: parse direct task: %w", err)
+	}
+
+	return raw, nil
 }
 
 // fetchCatalog загружает и парсит страницу каталога задач.
@@ -180,7 +189,7 @@ func (c *Collector) fetchCatalog(ctx context.Context) ([]catalogProblem, error) 
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("catalog not found: %w", errNotFound{url: url})
@@ -237,7 +246,7 @@ func (c *Collector) fetchProblemPage(ctx context.Context, slug string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return "", errNotFound{url: pageURL}
