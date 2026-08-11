@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // Шаблоны для поиска примеров в тексте задачи

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // fastCollector создаёт коллектор с минимальным интервалом 1мс.

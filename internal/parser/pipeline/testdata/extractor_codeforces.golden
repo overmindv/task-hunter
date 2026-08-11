@@ -3,30 +3,6 @@ A. Watermelon
 A. Watermelon
 1 second
 256 megabytes
-
-One hot summer day Pete and his friend Billy decided to buy a watermelon. They chose the biggest and the ripest one. The watermelon was so heavy that the boys decided to distribute it as evenly as possible.
-They want to divide the watermelon in such a way that each part weighs an even number of kilos, and the parts are not necessarily equal. Help the boys and determine if they can do that.
-
-
-Input
-The first line contains an integer w (1 ≤ w ≤ 100) — the weight of the watermelon.
-
-
-Output
-Print YES, if the boys can divide the watermelon, and NO otherwise.
-
-
-Examples
-
-8
-YES
-
-
-brute force, math
-
-A. Watermelon
-1 second
-256 megabytes
 One hot summer day Pete and his friend Billy decided to buy a watermelon. They chose the biggest and the ripest one. The watermelon was so heavy that the boys decided to distribute it as evenly as possible.
 They want to divide the watermelon in such a way that each part weighs an even number of kilos, and the parts are not necessarily equal. Help the boys and determine if they can do that.
 Input
@@ -38,6 +14,3 @@ Examples
 8
 YES
 brute force, math
-
-One hot summer day Pete and his friend Billy decided to buy a watermelon. They chose the biggest and the ripest one. The watermelon was so heavy that the boys decided to distribute it as evenly as possible.
-They want to divide the watermelon in such a way that each part weighs an even number of kilos, and the parts are not necessarily equal. Help the boys and determine if they can do that.

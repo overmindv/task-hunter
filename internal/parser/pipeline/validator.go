@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // Известные (валидные) идентификаторы источников.

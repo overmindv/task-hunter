@@ -2,10 +2,10 @@
         migrate-up migrate-down migrate-status codegen codegraph help
 
 # --- Переменные ---
-APP_NAME     := task-collector
-CMD_DIR      := ./cmd/parser
+APP_NAME     := task-hunter
+CMD_DIR      := ./cmd/task-hunter
 BIN_DIR      := ./bin
-BINARY       := $(BIN_DIR)/parser
+BINARY       := $(BIN_DIR)/task-hunter
 DOCKER_TAG   := $(APP_NAME):latest
 
 GO           := go
@@ -27,23 +27,19 @@ build-all: ## Собрать все пакеты (без бинарника)
 run: ## Запустить приложение (требует PARSER_DATABASE_DSN)
 	$(GO) run $(CMD_DIR)
 
-run-dev: ## Запустить с PostgreSQL в Docker
-	@echo "Starting PostgreSQL..."
-	@docker compose up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
-	@sleep 3
-	$(GO) run $(CMD_DIR)
+run-dev: ## Запустить сервис, migration job и PostgreSQL через Docker Compose
+	docker compose up --build task-hunter
 
 # --- Тестирование ---
 
 test: ## Запустить все тесты
-	$(GO) test $(GOTESTFLAGS) ./... ./tests/...
+	$(GO) test $(GOTESTFLAGS) ./...
 
 test-unit: ## Запустить unit-тесты
 	$(GO) test $(GOTESTFLAGS) ./internal/...
 
 test-component: ## Запустить компонентные тесты (требуют БД)
-	$(GO) test $(GOTESTFLAGS) ./tests/...
+	$(GO) test $(GOTESTFLAGS) -tags=component ./tests/component
 
 test-coverage: ## Запустить тесты с отчётом о покрытии
 	$(GO) test $(GOTESTFLAGS) -coverprofile=coverage.out ./...

@@ -9,7 +9,7 @@ import (
 	"context"
 	"strings"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // Classifier — интерфейс классификатора задач.

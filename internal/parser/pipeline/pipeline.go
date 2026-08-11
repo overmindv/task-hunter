@@ -19,8 +19,8 @@ import (
 	"log/slog"
 	"time"
 
-	"diploma/internal/parser/classifier"
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/classifier"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // Processor — интерфейс одного этапа обработки задачи.

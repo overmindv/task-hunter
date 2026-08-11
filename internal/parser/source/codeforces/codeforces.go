@@ -15,11 +15,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/source"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/source"
 )
 
 // httpClient — интерфейс HTTP-клиента для мокания в тестах.
@@ -141,6 +144,28 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 	return tasks, nil
 }
 
+// CollectURL загружает одну каноническую задачу Codeforces без обхода каталога.
+func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTask, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "codeforces.com" {
+		return domain.RawTask{}, fmt.Errorf("codeforces: invalid task URL")
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) != 4 || parts[0] != "problemset" || parts[1] != "problem" {
+		return domain.RawTask{}, fmt.Errorf("codeforces: unsupported task URL")
+	}
+	contestID, err := strconv.Atoi(parts[2])
+	if err != nil || parts[3] == "" {
+		return domain.RawTask{}, fmt.Errorf("codeforces: invalid problem identifier")
+	}
+	html, err := c.fetchProblemPage(ctx, contestID, parts[3])
+	if err != nil {
+		return domain.RawTask{}, fmt.Errorf("codeforces: fetch direct task: %w", err)
+	}
+
+	return c.problemToRawTask(cfProblem{ContestID: contestID, Index: parts[3]}, html), nil
+}
+
 // fetchProblems получает список задач через API.
 func (c *Collector) fetchProblems(ctx context.Context) ([]cfProblem, error) {
 	<-c.rateLimiter.C
@@ -159,6 +184,9 @@ func (c *Collector) fetchProblems(ctx context.Context) ([]cfProblem, error) {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -194,6 +222,9 @@ func (c *Collector) fetchProblemPage(ctx context.Context, contestID int, index s
 		return "", fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

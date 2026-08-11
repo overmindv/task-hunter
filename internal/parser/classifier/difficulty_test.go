@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // TestClassifyDifficulty проверяет определение сложности через RuleBasedClassifier.

@@ -35,12 +35,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/source"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/source"
 )
 
 // httpClient — интерфейс HTTP-клиента для мокания в тестах.
@@ -221,6 +222,27 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 	}
 
 	return tasks, nil
+}
+
+// CollectURL загружает одну задачу LeetCode по каноническому slug.
+func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTask, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "leetcode.com" {
+		return domain.RawTask{}, fmt.Errorf("leetcode: invalid task URL")
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) != 2 || parts[0] != "problems" || parts[1] == "" {
+		return domain.RawTask{}, fmt.Errorf("leetcode: unsupported task URL")
+	}
+	detail, err := c.fetchQuestionDetail(ctx, parts[1])
+	if err != nil {
+		return domain.RawTask{}, fmt.Errorf("leetcode: fetch direct task: %w", err)
+	}
+	if detail.Content == "" || DetectBlockingPage(detail.Content) {
+		return domain.RawTask{}, fmt.Errorf("leetcode: task content is unavailable")
+	}
+
+	return c.problemToRawTask(detail), nil
 }
 
 // fetchProblemset получает список задач через GraphQL.

@@ -1,19 +1,30 @@
+//go:build component
+
 // Package component содержит компонентные тесты, требующие реальную БД.
 package component
 
 import (
 	"database/sql"
+	"os"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"diploma/internal/parser/storage"
+	"github.com/overmindv/task-hunter/internal/parser/storage"
 )
 
-const (
-	testDBURL     = "postgres://postgres:postgres@localhost:5433/diploma_test?sslmode=disable"
-	migrationsDir = "../../migrations"
-)
+const migrationsDir = "../../migrations"
+
+var testDBURL = componentDSN()
+
+// componentDSN возвращает явный DSN или совместимый локальный default.
+func componentDSN() string {
+	if value := os.Getenv("COMPONENT_TEST_DSN"); value != "" {
+		return value
+	}
+
+	return "postgres://postgres:postgres@localhost:5433/task_hunter_test?sslmode=disable"
+}
 
 // setupDB подготавливает чистое состояние БД: откатывает и накатывает миграции.
 // Возвращает *sql.DB и репозиторий.

@@ -7,7 +7,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // Extractor извлекает чистый текст из сырых данных источника.
@@ -92,16 +92,25 @@ func extractFromHTML(htmlContent string) extractedContent {
 	})
 
 	// Извлекаем основной текст
-	var textParts []string
-
-	doc.Find(".problem-statement, .question-content, .content-wrapper, .statement, body").Each(func(_ int, s *goquery.Selection) {
-		text := extractTextFromNode(s)
-		if text != "" {
-			textParts = append(textParts, text)
+	text := ""
+	// Выбираем один наиболее специфичный контейнер. Объединение с body дублирует
+	// условие и может захватить навигацию современного SPA.
+	for _, selector := range []string{
+		"#tab-description-panel",
+		".problem-statement",
+		".content-wrapper",
+		".question-content",
+		".statement",
+	} {
+		selection := doc.Find(selector).First()
+		if selection.Length() == 0 {
+			continue
 		}
-	})
-
-	text := strings.Join(textParts, "\n\n")
+		text = extractTextFromNode(selection)
+		if text != "" {
+			break
+		}
+	}
 	if text == "" {
 		// Fallback: весь текст body
 		text = strings.TrimSpace(doc.Find("body").Text())

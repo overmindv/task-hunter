@@ -1,3 +1,5 @@
+//go:build component
+
 package component
 
 import (
@@ -9,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"diploma/internal/parser/domain"
-	"diploma/internal/parser/storage"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/storage"
 )
 
 // TestSaveAndGetByID проверяет сохранение и получение задачи.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"diploma/internal/parser/domain"
+	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
 // DifficultyAnalyzer определяет сложность задачи на основе текста.

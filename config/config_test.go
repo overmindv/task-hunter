@@ -163,4 +163,3 @@ func TestActiveSources_Multiple(t *testing.T) {
 		t.Error("expected telegram_analytics in active sources")
 	}
 }
-
