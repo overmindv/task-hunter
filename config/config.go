@@ -25,7 +25,7 @@ type Config struct {
 	Schedule ScheduleConfig
 	Sources  SourcesConfig `envconfig:"SOURCE"`
 	HTTP     HTTPConfig
-	TasksIT  TasksITConfig `envconfig:"TASKSIT"`
+	Tasks    TasksConfig `envconfig:"TASKS"`
 	Security SecurityConfig
 	Worker   WorkerConfig
 	Telegram TelegramConfig
@@ -44,9 +44,9 @@ type HTTPConfig struct {
 	WriteTimeout time.Duration `envconfig:"WRITETIMEOUT" default:"20s"`
 }
 
-// TasksITConfig задаёт защищённый внутренний клиент владельца задач.
-type TasksITConfig struct {
-	URL        string        `envconfig:"URL" default:"http://tasks-it:8080"`
+// TasksConfig задаёт защищённый внутренний клиент владельца задач.
+type TasksConfig struct {
+	URL        string        `envconfig:"URL" default:"http://tasks:8080"`
 	Token      string        `envconfig:"TOKEN" default:""`
 	Timeout    time.Duration `envconfig:"TIMEOUT" default:"15s"`
 	MaxRetries int           `envconfig:"MAXRETRIES" default:"3"`
@@ -181,15 +181,15 @@ func (c *Config) validate() error {
 
 // ValidateRuntime проверяет обязательные секреты и параметры интегрированного сервиса.
 func (c *Config) ValidateRuntime() error {
-	if c.TasksIT.URL == "" || c.TasksIT.Token == "" {
-		return fmt.Errorf("PARSER_TASKSIT_URL and PARSER_TASKSIT_TOKEN are required")
+	if c.Tasks.URL == "" || c.Tasks.Token == "" {
+		return fmt.Errorf("PARSER_TASKS_URL and PARSER_TASKS_TOKEN are required")
 	}
-	parsedTasksITURL, err := url.Parse(c.TasksIT.URL)
-	if err != nil || parsedTasksITURL.Host == "" || (parsedTasksITURL.Scheme != "http" && parsedTasksITURL.Scheme != "https") {
-		return fmt.Errorf("PARSER_TASKSIT_URL must be an absolute HTTP(S) URL")
+	parsedTasksURL, err := url.Parse(c.Tasks.URL)
+	if err != nil || parsedTasksURL.Host == "" || (parsedTasksURL.Scheme != "http" && parsedTasksURL.Scheme != "https") {
+		return fmt.Errorf("PARSER_TASKS_URL must be an absolute HTTP(S) URL")
 	}
-	if c.TasksIT.Timeout <= 0 || c.TasksIT.MaxRetries < 0 || c.TasksIT.MaxRetries > 10 {
-		return fmt.Errorf("tasks-it timeout must be positive and max retries must be between 0 and 10")
+	if c.Tasks.Timeout <= 0 || c.Tasks.MaxRetries < 0 || c.Tasks.MaxRetries > 10 {
+		return fmt.Errorf("tasks timeout must be positive and max retries must be between 0 and 10")
 	}
 	if c.Security.GatewayToken == "" {
 		return fmt.Errorf("PARSER_SECURITY_GATEWAYTOKEN is required")

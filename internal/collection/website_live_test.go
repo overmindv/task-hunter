@@ -37,10 +37,10 @@ func TestLiveWebsiteExamples(t *testing.T) {
 			}
 			candidate, err := worker.normalize(context.Background(), uuid.New(), test.source, raw.SourceURL, raw, nil, 0)
 			if err != nil {
-				t.Fatalf("normalize tasks-it candidate: %v", err)
+				t.Fatalf("normalize tasks candidate: %v", err)
 			}
 			if candidate.Difficulty != "easy" && candidate.Difficulty != "medium" && candidate.Difficulty != "hard" {
-				t.Fatalf("tasks-it would reject difficulty %q", candidate.Difficulty)
+				t.Fatalf("tasks would reject difficulty %q", candidate.Difficulty)
 			}
 		})
 	}

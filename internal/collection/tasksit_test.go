@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-// TestTasksITClientRetriesTemporaryFailure проверяет ограниченный retry для 5xx.
-func TestTasksITClientRetriesTemporaryFailure(t *testing.T) {
+// TestTasksClientRetriesTemporaryFailure проверяет ограниченный retry для 5xx.
+func TestTasksClientRetriesTemporaryFailure(t *testing.T) {
 	t.Parallel()
 
-	client := NewTasksITClient("http://tasks-it.local", "service-token", time.Second, 1)
+	client := NewTasksClient("http://tasks.local", "service-token", time.Second, 1)
 	attempts := 0
 	client.httpClient.Transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		attempts++

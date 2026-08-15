@@ -9,7 +9,7 @@ import (
 	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
-// TestWorkerNormalizeClassifiesDifficulty проверяет допустимую сложность для tasks-it.
+// TestWorkerNormalizeClassifiesDifficulty проверяет допустимую сложность для tasks.
 func TestWorkerNormalizeClassifiesDifficulty(t *testing.T) {
 	worker := NewWorker(nil, nil, nil, nil, "test", time.Second, time.Minute)
 	raw := domain.RawTask{
@@ -29,6 +29,6 @@ func TestWorkerNormalizeClassifiesDifficulty(t *testing.T) {
 		t.Fatal(err)
 	}
 	if candidate.Difficulty == "unknown" {
-		t.Fatalf("tasks-it would reject candidate: %#v", candidate)
+		t.Fatalf("tasks would reject candidate: %#v", candidate)
 	}
 }

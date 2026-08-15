@@ -1,3 +1,5 @@
+//go:build telegram
+
 // telegram-session создаёт локальный MTProto session-файл для закрытого volume.
 package main
 

@@ -150,7 +150,7 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 		return result
 	}
 	if len(candidates) > 0 && len(successful) == 0 {
-		result.ErrorMessage = "tasks-it не принял ни одного кандидата"
+		result.ErrorMessage = "tasks не принял ни одного кандидата"
 
 		return result
 	}
@@ -228,7 +228,7 @@ func (w *Worker) collectWebsite(ctx context.Context, job Job, source JobSource) 
 	return []Candidate{candidate}, nil
 }
 
-// normalize переводит parser domain в стабильный контракт tasks-it.
+// normalize переводит parser domain в стабильный контракт tasks.
 func (w *Worker) normalize(ctx context.Context, jobID uuid.UUID, sourceID, externalID string, raw domain.RawTask, publishedAt *time.Time, messageID int64) (Candidate, error) {
 	result, err := w.pipeline.Run(ctx, raw)
 	if err != nil {
@@ -252,7 +252,7 @@ func (w *Worker) normalize(ctx context.Context, jobID uuid.UUID, sourceID, exter
 	}, nil
 }
 
-// importCandidates отправляет батчи и возвращает кандидатов, подтверждённых tasks-it.
+// importCandidates отправляет батчи и возвращает кандидатов, подтверждённых tasks.
 func (w *Worker) importCandidates(ctx context.Context, candidates []Candidate) (int, int, int, []Candidate, error) {
 	imported, duplicates, invalid := 0, 0, 0
 	successful := make([]Candidate, 0, len(candidates))
@@ -270,7 +270,7 @@ func (w *Worker) importCandidates(ctx context.Context, candidates []Candidate) (
 		for _, result := range results {
 			candidate, exists := byExternalID[result.ExternalID]
 			if !exists {
-				return imported, duplicates, invalid, successful, fmt.Errorf("tasks-it returned an unknown external_id")
+				return imported, duplicates, invalid, successful, fmt.Errorf("tasks returned an unknown external_id")
 			}
 			seen[result.ExternalID] = struct{}{}
 			switch result.Status {
@@ -283,14 +283,14 @@ func (w *Worker) importCandidates(ctx context.Context, candidates []Candidate) (
 			case "invalid":
 				invalid++
 			case "error":
-				return imported, duplicates, invalid, successful, fmt.Errorf("tasks-it failed to persist a candidate")
+				return imported, duplicates, invalid, successful, fmt.Errorf("tasks failed to persist a candidate")
 			default:
-				return imported, duplicates, invalid, successful, fmt.Errorf("tasks-it returned unsupported import status")
+				return imported, duplicates, invalid, successful, fmt.Errorf("tasks returned unsupported import status")
 			}
 		}
 		for _, candidate := range candidates[start:end] {
 			if _, ok := seen[candidate.ExternalID]; !ok {
-				return imported, duplicates, invalid, successful, fmt.Errorf("tasks-it returned an incomplete batch response")
+				return imported, duplicates, invalid, successful, fmt.Errorf("tasks returned an incomplete batch response")
 			}
 		}
 	}

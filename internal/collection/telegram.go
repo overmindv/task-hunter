@@ -1,3 +1,5 @@
+//go:build telegram
+
 package collection
 
 import (

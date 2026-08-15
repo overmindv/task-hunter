@@ -167,8 +167,8 @@ func TestActiveSources_Multiple(t *testing.T) {
 // TestValidateRuntimeWithoutTelegram проверяет локальный запуск без внешних credentials.
 func TestValidateRuntimeWithoutTelegram(t *testing.T) {
 	cfg := Config{
-		TasksIT: TasksITConfig{
-			URL:        "http://tasks-it:8080",
+		Tasks: TasksConfig{
+			URL:        "http://tasks:8080",
 			Token:      "tasks-token",
 			Timeout:    time.Second,
 			MaxRetries: 3,
@@ -199,8 +199,8 @@ func TestValidateRuntimeWithoutTelegram(t *testing.T) {
 // TestValidateRuntimeRequiresEnabledTelegram проверяет credentials включённого Telegram.
 func TestValidateRuntimeRequiresEnabledTelegram(t *testing.T) {
 	cfg := Config{
-		TasksIT: TasksITConfig{
-			URL:        "http://tasks-it:8080",
+		Tasks: TasksConfig{
+			URL:        "http://tasks:8080",
 			Token:      "tasks-token",
 			Timeout:    time.Second,
 			MaxRetries: 3,

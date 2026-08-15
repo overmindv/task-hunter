@@ -8,7 +8,7 @@ cron/admin API -> collection_jobs -> worker
                                   └─ CodeRun direct URL adapter
                                             |
                                             v
-                              tasks-it internal batch ingestion
+                              tasks internal batch ingestion
                                             |
                                             v
                               task_candidates -> moderation -> published programming task
@@ -16,13 +16,13 @@ cron/admin API -> collection_jobs -> worker
 
 ## Владение данными
 
-`task-hunter` хранит только параметры и результаты jobs, безопасные ошибки источников, lease и Telegram checkpoint. `tasks-it` хранит candidate payload, immutable provenance и опубликованные версии задач. Сервисы не читают таблицы друг друга.
+`task-hunter` хранит только параметры и результаты jobs, безопасные ошибки источников, lease и Telegram checkpoint. `tasks` хранит candidate payload, immutable provenance и опубликованные версии задач. Сервисы не читают таблицы друг друга.
 
 ## Надёжность
 
 Job имеет статусы `queued`, `running`, `succeeded`, `partial`, `failed`. Источники выполняются независимо. Lease продлевается активным worker; просроченный lease позволяет продолжить job после рестарта. Уникальный idempotency key исключает повторную постановку manual и cron jobs.
 
-Checkpoint обновляется только после подтверждённого `imported` или `duplicate` ответа tasks-it и только для scheduled/bootstrap job. При лимите он продвигается до последнего реально подтверждённого message ID. Ручной исторический диапазон checkpoint не меняет.
+Checkpoint обновляется только после подтверждённого `imported` или `duplicate` ответа tasks и только для scheduled/bootstrap job. При лимите он продвигается до последнего реально подтверждённого message ID. Ручной исторический диапазон checkpoint не меняет.
 
 ## Безопасность
 
