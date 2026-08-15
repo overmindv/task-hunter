@@ -20,7 +20,7 @@ TaskCollector — компонент образовательной платфо
 | **Структуры данных** | Специализированные структуры | стек, очередь, хеш-таблица, heap, Trie, DSU, Fenwick |
 | **Базы данных** | SQL-запросы, проектирование БД | SQL, SELECT, JOIN, индексы, нормализация, транзакции, ACID |
 | **Бэкенд** | Серверная разработка | API, REST, HTTP, JWT, gRPC, middleware, микросервисы |
-| **Инфраструктура** | Деплой, контейнеризация | Docker, Kubernetes, CI/CD, Terraform, Prometheus |
+| **Инфраструктура** | Деплой, контейнеризация | Docker, CI/CD, Terraform, Prometheus |
 | **Тестирование** | Проверка качества кода | unit test, mock, stub, TDD, test coverage |
 | **Ревью кода** | Анализ качества кода | code review, рефакторинг, code smell, SOLID, clean code |
 

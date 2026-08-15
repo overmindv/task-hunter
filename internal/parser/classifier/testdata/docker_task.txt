@@ -1,2 +1,2 @@
 Docker-контейнер для приложения
-Напишите Dockerfile для Node.js приложения и docker-compose.yml для запуска вместе с PostgreSQL. Настройте CI/CD пайплайн для автоматического деплоя контейнера в Kubernetes.
+Напишите Dockerfile для Node.js приложения и docker-compose.yml для запуска вместе с PostgreSQL. Настройте CI/CD пайплайн для автоматического деплоя контейнера.

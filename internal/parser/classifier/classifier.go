@@ -139,8 +139,8 @@ func defaultRules() []typeRule {
 		{
 			Type: domain.TaskTypeInfrastructure,
 			Keywords: []string{
-				"docker", "kubernetes", "ci/cd", "деплой", "контейнер",
-				"yaml", "dockerfile", "kubernetes", "пайплайн",
+				"docker", "ci/cd", "деплой", "контейнер",
+				"yaml", "dockerfile", "пайплайн",
 				"terraform", "ansible", "мониторинг", "prometheus",
 			},
 		},
