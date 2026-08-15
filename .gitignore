@@ -53,5 +53,8 @@ Thumbs.db
 # --- CodeGraph ---
 .codegraph/
 
+# --- Claude ---
+.claude/
+
 # --- Migration metadata (goose) ---
 *.db_version

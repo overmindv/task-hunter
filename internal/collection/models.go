@@ -98,7 +98,7 @@ type Checkpoint struct {
 	LastPublishedAt time.Time
 }
 
-// Candidate представляет нормализованный payload для tasks-it.
+// Candidate представляет нормализованный payload для tasks.
 type Candidate struct {
 	ExternalID        string     `json:"external_id"`
 	SourceID          string     `json:"source_id"`

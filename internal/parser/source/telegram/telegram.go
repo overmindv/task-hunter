@@ -1,3 +1,5 @@
+//go:build telegram
+
 // Package telegram реализует сбор задач из Telegram-каналов через MTProto.
 //
 // Использует библиотеку gotd/td (https://github.com/gotd/td) для работы

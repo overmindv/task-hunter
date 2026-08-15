@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// ImportResult описывает ответ tasks-it для одного кандидата.
+// ImportResult описывает ответ tasks для одного кандидата.
 type ImportResult struct {
 	ExternalID  string `json:"external_id"`
 	CandidateID string `json:"candidate_id"`
@@ -24,17 +24,17 @@ type CandidateSink interface {
 	Import(ctx context.Context, candidates []Candidate) ([]ImportResult, error)
 }
 
-// TasksITClient отправляет защищённые batch-запросы владельцу задач.
-type TasksITClient struct {
+// TasksClient отправляет защищённые batch-запросы владельцу задач.
+type TasksClient struct {
 	baseURL    string
 	token      string
 	httpClient *http.Client
 	maxRetries int
 }
 
-// NewTasksITClient создаёт клиент internal ingestion API.
-func NewTasksITClient(baseURL, token string, timeout time.Duration, maxRetries int) *TasksITClient {
-	return &TasksITClient{
+// NewTasksClient создаёт клиент internal ingestion API.
+func NewTasksClient(baseURL, token string, timeout time.Duration, maxRetries int) *TasksClient {
+	return &TasksClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		token:      token,
 		httpClient: &http.Client{Timeout: timeout},
@@ -43,12 +43,12 @@ func NewTasksITClient(baseURL, token string, timeout time.Duration, maxRetries i
 }
 
 // Import отправляет до 100 кандидатов и повторяет только временные ошибки.
-func (c *TasksITClient) Import(ctx context.Context, candidates []Candidate) ([]ImportResult, error) {
+func (c *TasksClient) Import(ctx context.Context, candidates []Candidate) ([]ImportResult, error) {
 	if len(candidates) == 0 {
 		return nil, nil
 	}
 	if len(candidates) > 100 {
-		return nil, fmt.Errorf("tasks-it batch exceeds 100 candidates")
+		return nil, fmt.Errorf("tasks batch exceeds 100 candidates")
 	}
 
 	payload := map[string]any{"items": candidates}
@@ -73,42 +73,42 @@ func (c *TasksITClient) Import(ctx context.Context, candidates []Candidate) ([]I
 		case <-ctx.Done():
 			timer.Stop()
 
-			return nil, fmt.Errorf("wait tasks-it retry: %w", ctx.Err())
+			return nil, fmt.Errorf("wait tasks retry: %w", ctx.Err())
 		case <-timer.C:
 		}
 	}
 
-	return nil, fmt.Errorf("import candidates to tasks-it: %w", lastErr)
+	return nil, fmt.Errorf("import candidates to tasks: %w", lastErr)
 }
 
 // doImport выполняет одну HTTP-попытку и сообщает, допустим ли retry.
-func (c *TasksITClient) doImport(ctx context.Context, body []byte) ([]ImportResult, bool, error) {
+func (c *TasksClient) doImport(ctx context.Context, body []byte) ([]ImportResult, bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/internal/task-candidates/batch", bytes.NewReader(body))
 	if err != nil {
-		return nil, false, fmt.Errorf("create tasks-it request: %w", err)
+		return nil, false, fmt.Errorf("create tasks request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, true, fmt.Errorf("call tasks-it: %w", err)
+		return nil, true, fmt.Errorf("call tasks: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, true, fmt.Errorf("read tasks-it response: %w", err)
+		return nil, true, fmt.Errorf("read tasks response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests, fmt.Errorf("tasks-it returned HTTP %d", resp.StatusCode)
+		return nil, resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests, fmt.Errorf("tasks returned HTTP %d", resp.StatusCode)
 	}
 
 	var response struct {
 		Items []ImportResult `json:"items"`
 	}
 	if err := json.Unmarshal(responseBody, &response); err != nil {
-		return nil, false, fmt.Errorf("decode tasks-it response: %w", err)
+		return nil, false, fmt.Errorf("decode tasks response: %w", err)
 	}
 
 	return response.Items, false, nil

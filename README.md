@@ -1,6 +1,6 @@
 # task-hunter
 
-Сервис Overmindv для асинхронного сбора кандидатов задач. `task-hunter` владеет очередью collection jobs и Telegram checkpoint'ами, а нормализованные кандидаты передаёт владельцу задач `tasks-it` через защищённый batch API.
+Сервис Overmindv для асинхронного сбора кандидатов задач. `task-hunter` владеет очередью collection jobs и Telegram checkpoint'ами, а нормализованные кандидаты передаёт владельцу задач `tasks` через защищённый batch API.
 
 ## Потоки
 
@@ -10,7 +10,7 @@
 - Ссылки с завершающим `/`, `www`, query-параметрами и Codeforces contest URL приводятся к одному каноническому виду до проверки дублей.
 - LeetCode читается через GraphQL, CodeRun — через `__NEXT_DATA__` и открытые файлы условия, Codeforces при блокировке HTML использует Reader fallback.
 - Worker арендует job через `FOR UPDATE SKIP LOCKED`, продлевает lease и изолирует ошибки источников.
-- Кандидаты отправляются в `tasks-it` идемпотентными batch-запросами; HTML и полные Telegram-сообщения в БД task-hunter не сохраняются.
+- Кандидаты отправляются в `tasks` идемпотентными batch-запросами; HTML и полные Telegram-сообщения в БД task-hunter не сохраняются.
 
 ## HTTP API
 
@@ -36,7 +36,7 @@ go run ./cmd/task-hunter
 
 PostgreSQL component tests запускаются отдельно командой `COMPONENT_TEST_DSN='postgres://…' make test-component`. Они откатывают и повторно накатывают миграции, поэтому DSN должен указывать только на выделенную тестовую БД.
 
-Основные настройки: `PARSER_DATABASE_DSN`, `PARSER_TASKSIT_URL`, `PARSER_TASKSIT_TOKEN`, `PARSER_SECURITY_GATEWAYTOKEN` и `PARSER_TELEGRAM_ENABLED`. `PARSER_WEBSITE_CODEFORCESREADERURL` уже имеет публичное значение по умолчанию и не требует API-ключа. При включённом Telegram также требуются `PARSER_TELEGRAM_APIID`, `PARSER_TELEGRAM_APIHASH`, `PARSER_TELEGRAM_SESSIONPATH` и `PARSER_TELEGRAM_CHANNELS`.
+Основные настройки: `PARSER_DATABASE_DSN`, `PARSER_TASKS_URL`, `PARSER_TASKS_TOKEN`, `PARSER_SECURITY_GATEWAYTOKEN` и `PARSER_TELEGRAM_ENABLED`. `PARSER_WEBSITE_CODEFORCESREADERURL` уже имеет публичное значение по умолчанию и не требует API-ключа. При включённом Telegram также требуются `PARSER_TELEGRAM_APIID`, `PARSER_TELEGRAM_APIHASH`, `PARSER_TELEGRAM_SESSIONPATH` и `PARSER_TELEGRAM_CHANNELS`.
 
 Полный локальный стек запускается одной командой `make up` из репозитория `infra`. Telegram там по умолчанию выключен и не нужен для readiness; подключение MTProto описано в инфраструктурном README.
 

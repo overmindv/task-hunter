@@ -52,7 +52,7 @@ func run(logger *slog.Logger) error {
 	websiteReader := collection.NewDirectWebsiteReader(&http.Client{Timeout: 30 * time.Second}).WithCodeforcesReaderURL(cfg.Website.CodeforcesReaderURL)
 	defer websiteReader.Close()
 
-	sink := collection.NewTasksITClient(cfg.TasksIT.URL, cfg.TasksIT.Token, cfg.TasksIT.Timeout, cfg.TasksIT.MaxRetries)
+	sink := collection.NewTasksClient(cfg.Tasks.URL, cfg.Tasks.Token, cfg.Tasks.Timeout, cfg.Tasks.MaxRetries)
 	hostname, err := os.Hostname()
 	if err != nil {
 		return fmt.Errorf("read worker hostname: %w", err)
