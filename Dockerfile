@@ -4,6 +4,9 @@ FROM golang:1.26-alpine AS builder
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
+
 RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
