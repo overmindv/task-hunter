@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -27,8 +26,15 @@ type HTTPHandler struct {
 	sessionPath     string
 }
 
-// NewHTTPHandler создаёт router task-hunter.
-func NewHTTPHandler(store *Store, logger *slog.Logger, gatewayToken string, channels []string, defaultLimit int, sessionPath string) http.Handler {
+// Router описывает минимальный контракт HTTP-роутера (parker.HTTPServer или *http.ServeMux в тестах).
+type Router interface {
+	Handle(pattern string, handler http.Handler)
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+}
+
+// Register регистрирует защищённый admin API очереди на роутер parker.
+// Liveness/readiness/metrics/middleware предоставляет parker.
+func Register(router Router, store *Store, logger *slog.Logger, gatewayToken string, channels []string, defaultLimit int, sessionPath string) {
 	allowedSet := make(map[string]struct{}, len(channels))
 	allowedChannels := make([]string, 0, len(channels))
 
@@ -51,43 +57,11 @@ func NewHTTPHandler(store *Store, logger *slog.Logger, gatewayToken string, chan
 		sessionPath:     sessionPath,
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", handler.health)
-	mux.HandleFunc("GET /ready", handler.ready)
-	mux.Handle("GET /v1/admin/collection-sources", handler.requireAdmin(http.HandlerFunc(handler.sources)))
-	mux.Handle("POST /v1/admin/collection-jobs", handler.requireAdmin(http.HandlerFunc(handler.createJob)))
-	mux.Handle("GET /v1/admin/collection-jobs", handler.requireAdmin(http.HandlerFunc(handler.listJobs)))
-	mux.Handle("GET /v1/admin/collection-jobs/{id}", handler.requireAdmin(http.HandlerFunc(handler.getJob)))
-	mux.Handle("POST /v1/admin/collection-jobs/{id}/acknowledge", handler.requireAdmin(http.HandlerFunc(handler.acknowledgeJob)))
-
-	return mux
-}
-
-// health сообщает, что HTTP-процесс работает.
-func (h *HTTPHandler) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-// ready проверяет доступность собственной PostgreSQL.
-func (h *HTTPHandler) ready(w http.ResponseWriter, r *http.Request) {
-	if err := h.store.Ping(r.Context()); err != nil {
-		h.logger.Error("readiness failed", "error", err)
-		writeError(w, http.StatusServiceUnavailable, "NOT_READY", "Сервис временно не готов")
-
-		return
-	}
-
-	if h.sessionPath != "" {
-		info, err := os.Stat(h.sessionPath)
-		if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
-			h.logger.Error("readiness failed", "reason", "Telegram session is unavailable")
-			writeError(w, http.StatusServiceUnavailable, "NOT_READY", "Telegram session не подготовлена")
-
-			return
-		}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+	router.Handle("GET /v1/admin/collection-sources", handler.requireAdmin(http.HandlerFunc(handler.sources)))
+	router.Handle("POST /v1/admin/collection-jobs", handler.requireAdmin(http.HandlerFunc(handler.createJob)))
+	router.Handle("GET /v1/admin/collection-jobs", handler.requireAdmin(http.HandlerFunc(handler.listJobs)))
+	router.Handle("GET /v1/admin/collection-jobs/{id}", handler.requireAdmin(http.HandlerFunc(handler.getJob)))
+	router.Handle("POST /v1/admin/collection-jobs/{id}/acknowledge", handler.requireAdmin(http.HandlerFunc(handler.acknowledgeJob)))
 }
 
 // requireAdmin доверяет actor context только при корректном service token gateway.

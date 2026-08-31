@@ -77,22 +77,22 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 }
 
-// TestLoad_MissingDSN проверяет ошибку при отсутствии обязательного DSN.
+// TestLoad_MissingDSN терпит отсутствие DSN: подключение к PostgreSQL владеет parker
+// (DATABASE_URL), а PARSER_DATABASE_DSN используется лишь отдельным parser-бинарём.
 func TestLoad_MissingDSN(t *testing.T) {
-	// Не устанавливаем PARSER_DATABASE_DSN
 	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for missing DSN, got nil")
+	if err != nil {
+		t.Fatalf("expected no error without DSN, got: %v", err)
 	}
 }
 
-// TestLoad_EmptyDSN проверяет ошибку при пустом DSN.
+// TestLoad_EmptyDSN терпит пустой DSN по той же причине.
 func TestLoad_EmptyDSN(t *testing.T) {
 	t.Setenv("PARSER_DATABASE_DSN", "")
 
 	_, err := Load()
-	if err == nil {
-		t.Fatal("expected error for empty DSN, got nil")
+	if err != nil {
+		t.Fatalf("expected no error for empty DSN, got: %v", err)
 	}
 }
 
@@ -182,10 +182,6 @@ func TestValidateRuntimeWithoutTelegram(t *testing.T) {
 			Bootstrap:    time.Hour,
 			DefaultLimit: 100,
 		},
-		HTTP: HTTPConfig{
-			ReadTimeout:  time.Second,
-			WriteTimeout: time.Second,
-		},
 		Telegram: TelegramConfig{
 			Enabled: false,
 		},
@@ -213,10 +209,6 @@ func TestValidateRuntimeRequiresEnabledTelegram(t *testing.T) {
 			Lease:        time.Minute,
 			Bootstrap:    time.Hour,
 			DefaultLimit: 100,
-		},
-		HTTP: HTTPConfig{
-			ReadTimeout:  time.Second,
-			WriteTimeout: time.Second,
 		},
 		Telegram: TelegramConfig{
 			Enabled: true,

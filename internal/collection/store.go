@@ -2,28 +2,29 @@ package collection
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Store сохраняет задания, источники и checkpoint в PostgreSQL.
 type Store struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 // NewStore создаёт repository очереди заданий.
-func NewStore(db *sql.DB) *Store {
+func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
 // Ping проверяет готовность PostgreSQL.
 func (s *Store) Ping(ctx context.Context) error {
-	if err := s.db.PingContext(ctx); err != nil {
+	if err := s.db.Ping(ctx); err != nil {
 		return fmt.Errorf("ping collection db: %w", err)
 	}
 
@@ -121,13 +122,13 @@ func (s *Store) CreateScheduled(ctx context.Context, trigger string, key uuid.UU
 
 // create сохраняет задание и его источники одной транзакцией.
 func (s *Store) create(ctx context.Context, job Job, sources []JobSource) (bool, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return false, fmt.Errorf("begin create collection job: %w", err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.ExecContext(ctx, `INSERT INTO collection_jobs (id,trigger_type,requested_by,idempotency_key,published_from,published_to,max_items_per_source,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+	_, err = tx.Exec(ctx, `INSERT INTO collection_jobs (id,trigger_type,requested_by,idempotency_key,published_from,published_to,max_items_per_source,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
 		job.ID, job.Trigger, job.RequestedBy, job.IdempotencyKey, job.PublishedFrom, job.PublishedTo, job.MaxItemsPerSource, job.Status)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -139,11 +140,11 @@ func (s *Store) create(ctx context.Context, job Job, sources []JobSource) (bool,
 	}
 
 	for _, source := range sources {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO collection_job_sources (id,job_id,source_kind,source_id,source_url,status) VALUES ($1,$2,$3,$4,$5,$6)`, source.ID, source.JobID, source.Kind, source.SourceID, source.URL, source.Status); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO collection_job_sources (id,job_id,source_kind,source_id,source_url,status) VALUES ($1,$2,$3,$4,$5,$6)`, source.ID, source.JobID, source.Kind, source.SourceID, source.URL, source.Status); err != nil {
 			return false, fmt.Errorf("insert collection job source: %w", err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return false, fmt.Errorf("commit collection job: %w", err)
 	}
 
@@ -152,21 +153,21 @@ func (s *Store) create(ctx context.Context, job Job, sources []JobSource) (bool,
 
 // Claim атомарно арендует следующее задание worker'у.
 func (s *Store) Claim(ctx context.Context, owner string, lease time.Duration) (*Job, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin claim collection job: %w", err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var claimLock bool
-	if err := tx.QueryRowContext(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('task-hunter/collection-claim'))`).Scan(&claimLock); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('task-hunter/collection-claim'))`).Scan(&claimLock); err != nil {
 		return nil, fmt.Errorf("lock collection job claim: %w", err)
 	}
 	if !claimLock {
 		return nil, nil
 	}
 
-	row := tx.QueryRowContext(ctx, `SELECT id FROM collection_jobs
+	row := tx.QueryRow(ctx, `SELECT id FROM collection_jobs
 WHERE (status='running' AND lease_expires_at < now())
    OR (status='queued' AND NOT EXISTS (
        SELECT 1 FROM collection_jobs active
@@ -176,16 +177,16 @@ ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`)
 
 	var id uuid.UUID
 	if err := row.Scan(&id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 
 		return nil, fmt.Errorf("select collection job for claim: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE collection_jobs SET status='running',lease_owner=$1,lease_expires_at=now()+make_interval(secs => $2),started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$3`, owner, int(lease.Seconds()), id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE collection_jobs SET status='running',lease_owner=$1,lease_expires_at=now()+make_interval(secs => $2),started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$3`, owner, int(lease.Seconds()), id); err != nil {
 		return nil, fmt.Errorf("claim collection job: %w", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit collection job claim: %w", err)
 	}
 	job, err := s.Get(ctx, id)
@@ -198,17 +199,12 @@ ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`)
 
 // RenewLease продлевает аренду только текущему владельцу активного задания.
 func (s *Store) RenewLease(ctx context.Context, id uuid.UUID, owner string, lease time.Duration) error {
-	tag, err := s.db.ExecContext(ctx, `UPDATE collection_jobs SET lease_expires_at=now()+make_interval(secs => $1),updated_at=now() WHERE id=$2 AND status='running' AND lease_owner=$3`, int(lease.Seconds()), id, owner)
+	tag, err := s.db.Exec(ctx, `UPDATE collection_jobs SET lease_expires_at=now()+make_interval(secs => $1),updated_at=now() WHERE id=$2 AND status='running' AND lease_owner=$3`, int(lease.Seconds()), id, owner)
 	if err != nil {
 		return fmt.Errorf("renew collection job lease: %w", err)
 	}
 
-	affected, err := tag.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("read collection job lease renewal: %w", err)
-	}
-
-	if affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("collection job lease is no longer owned")
 	}
 
@@ -217,31 +213,26 @@ func (s *Store) RenewLease(ctx context.Context, id uuid.UUID, owner string, leas
 
 // RequeueFailed возвращает полностью неуспешный bootstrap в очередь после устранения причины.
 func (s *Store) RequeueFailed(ctx context.Context, id uuid.UUID) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin requeue collection job: %w", err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback(ctx) //nolint:errcheck
 
-	if _, err := tx.ExecContext(ctx, `UPDATE collection_job_sources SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_message='',updated_at=now() WHERE job_id=$1 AND status='failed'`, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE collection_job_sources SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_message='',updated_at=now() WHERE job_id=$1 AND status='failed'`, id); err != nil {
 		return fmt.Errorf("requeue failed collection sources: %w", err)
 	}
 
-	tag, err := tx.ExecContext(ctx, `UPDATE collection_jobs SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_count=0,error_message='',lease_owner=NULL,lease_expires_at=NULL,started_at=NULL,finished_at=NULL,updated_at=now() WHERE id=$1 AND status='failed'`, id)
+	tag, err := tx.Exec(ctx, `UPDATE collection_jobs SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_count=0,error_message='',lease_owner=NULL,lease_expires_at=NULL,started_at=NULL,finished_at=NULL,updated_at=now() WHERE id=$1 AND status='failed'`, id)
 	if err != nil {
 		return fmt.Errorf("requeue failed collection job: %w", err)
 	}
 
-	affected, err := tag.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("read requeue collection job result: %w", err)
-	}
-
-	if affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("collection job is not failed")
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit requeue collection job: %w", err)
 	}
 
@@ -250,7 +241,7 @@ func (s *Store) RequeueFailed(ctx context.Context, id uuid.UUID) error {
 
 // Get возвращает задание вместе с источниками.
 func (s *Store) Get(ctx context.Context, id uuid.UUID) (Job, error) {
-	job, err := scanJob(s.db.QueryRowContext(ctx, `SELECT id,trigger_type,requested_by,idempotency_key,published_from,published_to,max_items_per_source,status,collected_total,imported_total,duplicates_total,invalid_total,error_count,error_message,notification_acknowledged_at IS NOT NULL,started_at,finished_at,created_at,updated_at FROM collection_jobs WHERE id=$1`, id))
+	job, err := scanJob(s.db.QueryRow(ctx, `SELECT id,trigger_type,requested_by,idempotency_key,published_from,published_to,max_items_per_source,status,collected_total,imported_total,duplicates_total,invalid_total,error_count,error_message,notification_acknowledged_at IS NOT NULL,started_at,finished_at,created_at,updated_at FROM collection_jobs WHERE id=$1`, id))
 	if err != nil {
 		return Job{}, fmt.Errorf("get collection job: %w", err)
 	}
@@ -267,7 +258,7 @@ func (s *Store) Get(ctx context.Context, id uuid.UUID) (Job, error) {
 // GetByIdempotency возвращает ранее созданное задание.
 func (s *Store) GetByIdempotency(ctx context.Context, key uuid.UUID) (Job, error) {
 	var id uuid.UUID
-	if err := s.db.QueryRowContext(ctx, `SELECT id FROM collection_jobs WHERE idempotency_key=$1`, key).Scan(&id); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT id FROM collection_jobs WHERE idempotency_key=$1`, key).Scan(&id); err != nil {
 		return Job{}, fmt.Errorf("get collection job by idempotency: %w", err)
 	}
 
@@ -285,11 +276,11 @@ func (s *Store) List(ctx context.Context, actorID uuid.UUID, unreadOnly bool, li
 	}
 
 	query += ` ORDER BY created_at DESC,id DESC LIMIT $1 OFFSET $2`
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list collection jobs: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer rows.Close()
 
 	items := make([]Job, 0)
 	for rows.Next() {
@@ -309,7 +300,7 @@ func (s *Store) List(ctx context.Context, actorID uuid.UUID, unreadOnly bool, li
 
 // StartSource переводит отдельный источник в running.
 func (s *Store) StartSource(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE collection_job_sources SET status='running',updated_at=now() WHERE id=$1`, id)
+	_, err := s.db.Exec(ctx, `UPDATE collection_job_sources SET status='running',updated_at=now() WHERE id=$1`, id)
 	if err != nil {
 		return fmt.Errorf("start collection source: %w", err)
 
@@ -320,7 +311,7 @@ func (s *Store) StartSource(ctx context.Context, id uuid.UUID) error {
 
 // FinishSource сохраняет итог отдельного источника.
 func (s *Store) FinishSource(ctx context.Context, source JobSource) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE collection_job_sources SET status=$1,collected_total=$2,imported_total=$3,duplicates_total=$4,invalid_total=$5,error_message=$6,updated_at=now() WHERE id=$7`,
+	_, err := s.db.Exec(ctx, `UPDATE collection_job_sources SET status=$1,collected_total=$2,imported_total=$3,duplicates_total=$4,invalid_total=$5,error_message=$6,updated_at=now() WHERE id=$7`,
 		source.Status, source.CollectedTotal, source.ImportedTotal, source.DuplicatesTotal, source.InvalidTotal, source.ErrorMessage, source.ID)
 	if err != nil {
 		return fmt.Errorf("finish collection source: %w", err)
@@ -331,7 +322,7 @@ func (s *Store) FinishSource(ctx context.Context, source JobSource) error {
 
 // FinishJob агрегирует source-результаты и завершает job.
 func (s *Store) FinishJob(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE collection_jobs j SET
+	_, err := s.db.Exec(ctx, `UPDATE collection_jobs j SET
 collected_total=x.collected,imported_total=x.imported,duplicates_total=x.duplicates,invalid_total=x.invalid,error_count=x.errors,
 status=CASE WHEN x.errors=0 THEN 'succeeded' WHEN x.successes=0 THEN 'failed' ELSE 'partial' END,
 error_message=CASE WHEN x.errors>0 THEN 'часть источников завершилась с ошибкой' ELSE '' END,
@@ -349,17 +340,12 @@ FROM collection_job_sources WHERE job_id=$1 GROUP BY job_id) x WHERE j.id=x.job_
 
 // Acknowledge помечает terminal notification прочитанным только владельцем.
 func (s *Store) Acknowledge(ctx context.Context, id, actorID uuid.UUID) error {
-	tag, err := s.db.ExecContext(ctx, `UPDATE collection_jobs SET notification_acknowledged_at=now(),updated_at=now() WHERE id=$1 AND requested_by=$2 AND status IN ('succeeded','partial','failed')`, id, actorID)
+	tag, err := s.db.Exec(ctx, `UPDATE collection_jobs SET notification_acknowledged_at=now(),updated_at=now() WHERE id=$1 AND requested_by=$2 AND status IN ('succeeded','partial','failed')`, id, actorID)
 	if err != nil {
 		return fmt.Errorf("acknowledge collection job: %w", err)
 	}
 
-	affected, err := tag.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("read acknowledge result: %w", err)
-	}
-
-	if affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("collection job not found or is not terminal")
 	}
 
@@ -369,10 +355,10 @@ func (s *Store) Acknowledge(ctx context.Context, id, actorID uuid.UUID) error {
 // GetCheckpoint возвращает persisted Telegram checkpoint.
 func (s *Store) GetCheckpoint(ctx context.Context, sourceID string) (*Checkpoint, error) {
 	var checkpoint Checkpoint
-	err := s.db.QueryRowContext(ctx, `SELECT source_id,last_message_id,last_published_at FROM collection_checkpoints WHERE source_id=$1`, sourceID).
+	err := s.db.QueryRow(ctx, `SELECT source_id,last_message_id,last_published_at FROM collection_checkpoints WHERE source_id=$1`, sourceID).
 		Scan(&checkpoint.SourceID, &checkpoint.LastMessageID, &checkpoint.LastPublishedAt)
 
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -384,7 +370,7 @@ func (s *Store) GetCheckpoint(ctx context.Context, sourceID string) (*Checkpoint
 
 // UpsertCheckpoint продвигает Telegram checkpoint только вперёд.
 func (s *Store) UpsertCheckpoint(ctx context.Context, checkpoint Checkpoint) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO collection_checkpoints (source_id,last_message_id,last_published_at) VALUES ($1,$2,$3)
+	_, err := s.db.Exec(ctx, `INSERT INTO collection_checkpoints (source_id,last_message_id,last_published_at) VALUES ($1,$2,$3)
 ON CONFLICT (source_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id,last_published_at=EXCLUDED.last_published_at,updated_at=now()
 WHERE collection_checkpoints.last_message_id < EXCLUDED.last_message_id`, checkpoint.SourceID, checkpoint.LastMessageID, checkpoint.LastPublishedAt)
 	if err != nil {
@@ -396,11 +382,11 @@ WHERE collection_checkpoints.last_message_id < EXCLUDED.last_message_id`, checkp
 
 // listSources возвращает источники задания в стабильном порядке.
 func (s *Store) listSources(ctx context.Context, jobID uuid.UUID) ([]JobSource, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,job_id,source_kind,source_id,source_url,status,collected_total,imported_total,duplicates_total,invalid_total,error_message FROM collection_job_sources WHERE job_id=$1 ORDER BY created_at,id`, jobID)
+	rows, err := s.db.Query(ctx, `SELECT id,job_id,source_kind,source_id,source_url,status,collected_total,imported_total,duplicates_total,invalid_total,error_message FROM collection_job_sources WHERE job_id=$1 ORDER BY created_at,id`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("list collection job sources: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer rows.Close()
 
 	items := make([]JobSource, 0)
 	for rows.Next() {

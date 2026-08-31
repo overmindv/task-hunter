@@ -20,12 +20,13 @@ import (
 const defaultCodeforcesReaderURL = "https://r.jina.ai/http://codeforces.com"
 
 // Config — корневая конфигурация модуля парсинга.
+// Инфраструктура (HTTP, PostgreSQL, лог) управляется parker: HTTP_ADDR/DATABASE_URL/...
+// Блок Database сохранён только для отдельного internal/parser/app (вне бинарника task-hunter).
 type Config struct {
 	Database DatabaseConfig
 	Schedule ScheduleConfig
 	Sources  SourcesConfig `envconfig:"SOURCE"`
-	HTTP     HTTPConfig
-	Tasks    TasksConfig `envconfig:"TASKS"`
+	Tasks    TasksConfig   `envconfig:"TASKS"`
 	Security SecurityConfig
 	Worker   WorkerConfig
 	Telegram TelegramConfig
@@ -35,13 +36,6 @@ type Config struct {
 // WebsiteConfig задаёт внешние адаптеры для публичных страниц задач.
 type WebsiteConfig struct {
 	CodeforcesReaderURL string `envconfig:"CODEFORCESREADERURL" default:"https://r.jina.ai/http://codeforces.com"`
-}
-
-// HTTPConfig задаёт внутренний HTTP API task-hunter.
-type HTTPConfig struct {
-	Address      string        `envconfig:"ADDRESS" default:":8080"`
-	ReadTimeout  time.Duration `envconfig:"READTIMEOUT" default:"10s"`
-	WriteTimeout time.Duration `envconfig:"WRITETIMEOUT" default:"20s"`
 }
 
 // TasksConfig задаёт защищённый внутренний клиент владельца задач.
@@ -158,10 +152,8 @@ func Load() (*Config, error) {
 }
 
 // validate проверяет обязательные поля конфигурации.
+// DSN управляется parker (DATABASE_URL), поэтому здесь не требуется.
 func (c *Config) validate() error {
-	if c.Database.DSN == "" {
-		return fmt.Errorf("PARSER_DATABASE_DSN is required")
-	}
 	if c.Database.MaxConns <= 0 {
 		return fmt.Errorf("PARSER_DATABASE_MAXCONNS must be positive")
 	}
@@ -202,9 +194,6 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if c.Worker.PollInterval <= 0 || c.Worker.Lease <= 0 || c.Worker.Bootstrap <= 0 {
 		return fmt.Errorf("worker durations must be positive")
-	}
-	if c.HTTP.ReadTimeout <= 0 || c.HTTP.WriteTimeout <= 0 {
-		return fmt.Errorf("HTTP timeouts must be positive")
 	}
 	if c.Website.CodeforcesReaderURL == "" {
 		c.Website.CodeforcesReaderURL = defaultCodeforcesReaderURL
