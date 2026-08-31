@@ -14,21 +14,22 @@
 
 ## HTTP API
 
-Все `/v1/admin/*` routes требуют gateway bearer token, `X-User-ID` и admin в `X-User-Roles`.
+Сервис запускается через каркас `parker`: `GET /health`, `GET /ready` (готовность включает PostgreSQL и, при включённом Telegram, готовность MTProto session), `GET /metrics` и middleware предоставляет parker. Сам сервис регистрирует только:
 
-- `GET /health`, `GET /ready`
 - `GET /v1/admin/collection-sources`
 - `POST /v1/admin/collection-jobs` — ответ `202 Accepted`
 - `GET /v1/admin/collection-jobs`
 - `GET /v1/admin/collection-jobs/{id}`
 - `POST /v1/admin/collection-jobs/{id}/acknowledge`
 
+Все `/v1/admin/*` routes требуют gateway bearer token, `X-User-ID` и admin в `X-User-Roles`.
+
 ## Локальная проверка
 
-Миграции выполняются отдельным контейнером:
+Конфигурация — через env с префиксом `PARSER_` (бизнес-часть) и переменные parker (`DATABASE_URL`, `HTTP_ADDR`, `ENV`, `LOG_LEVEL`).
 
 ```bash
-goose -dir migrations postgres "$PARSER_DATABASE_DSN" up
+go run ./cmd/task-hunter migrate --dir migrations --dsn "$DATABASE_URL" up
 go test ./...
 go vet ./...
 go run ./cmd/task-hunter
@@ -36,7 +37,7 @@ go run ./cmd/task-hunter
 
 PostgreSQL component tests запускаются отдельно командой `COMPONENT_TEST_DSN='postgres://…' make test-component`. Они откатывают и повторно накатывают миграции, поэтому DSN должен указывать только на выделенную тестовую БД.
 
-Основные настройки: `PARSER_DATABASE_DSN`, `PARSER_TASKS_URL`, `PARSER_TASKS_TOKEN`, `PARSER_SECURITY_GATEWAYTOKEN` и `PARSER_TELEGRAM_ENABLED`. `PARSER_WEBSITE_CODEFORCESREADERURL` уже имеет публичное значение по умолчанию и не требует API-ключа. При включённом Telegram также требуются `PARSER_TELEGRAM_APIID`, `PARSER_TELEGRAM_APIHASH`, `PARSER_TELEGRAM_SESSIONPATH` и `PARSER_TELEGRAM_CHANNELS`.
+Основные настройки: `PARSER_TASKS_URL`, `PARSER_TASKS_TOKEN`, `PARSER_SECURITY_GATEWAYTOKEN` и `PARSER_TELEGRAM_ENABLED`. `PARSER_WEBSITE_CODEFORCESREADERURL` уже имеет публичное значение по умолчанию и не требует API-ключа. При включённом Telegram также требуются `PARSER_TELEGRAM_APIID`, `PARSER_TELEGRAM_APIHASH`, `PARSER_TELEGRAM_SESSIONPATH` и `PARSER_TELEGRAM_CHANNELS`.
 
 Полный локальный стек запускается одной командой `make up` из репозитория `infra`. Telegram там по умолчанию выключен и не нужен для readiness; подключение MTProto описано в инфраструктурном README.
 

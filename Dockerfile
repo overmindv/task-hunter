@@ -25,8 +25,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 # компилируются только с тегом //go:build telegram, поэтому gotd/td (крупная
 # зависимость, из-за которой компилятор падал по OOM) в обычную сборку не входит.
 # Код не удалён — лежит в репозитории. Чтобы вернуть малопотребляемый вариант:
-#   go build -tags telegram ./cmd/telegram-session   и добавьте обратно COPY ниже.
-RUN GOBIN=/app go install -tags="no_clickhouse no_mssql no_mysql no_sqlite3 no_libsql no_ydb no_vertica" github.com/pressly/goose/v3/cmd/goose@v3.27.3
+#   go build -tags telegram ./cmd/telegram-session
 
 # ---- Run stage ----
 FROM alpine:3.21
@@ -38,7 +37,6 @@ WORKDIR /app
 # Копируем бинарник
 COPY --from=builder /app/task-hunter /usr/local/bin/task-hunter
 # telegram-session не копируется (см. комментарий у сборки выше) — Telegram отключён.
-COPY --from=builder /app/goose /usr/local/bin/goose
 
 # Копируем миграции
 COPY --from=builder /app/migrations ./migrations

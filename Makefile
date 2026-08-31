@@ -24,7 +24,7 @@ build-all: ## Собрать все пакеты (без бинарника)
 
 # --- Запуск ---
 
-run: ## Запустить приложение (требует PARSER_DATABASE_DSN)
+run: ## Запустить приложение (требует DATABASE_URL и PARSER_* конфиг)
 	$(GO) run $(CMD_DIR)
 
 run-dev: ## Запустить сервис, migration job и PostgreSQL через Docker Compose
@@ -84,18 +84,18 @@ docker-logs: ## Посмотреть логи
 docker-restart: ## Перезапустить сервисы
 	docker compose restart
 
-# --- Миграции ---
+# --- Миграции (через parker) ---
 
-migrate-up: ## Накатить миграции
-	goose -dir migrations postgres "$(PARSER_DATABASE_DSN)" up
+migrate-up: ## Накатить миграции (к DATABASE_URL)
+	go run $(CMD_DIR) migrate --dir migrations --dsn "$(DATABASE_URL)" up
 
-migrate-down: ## Откатить миграции
-	goose -dir migrations postgres "$(PARSER_DATABASE_DSN)" down
+migrate-down: ## Откатить миграции (к DATABASE_URL)
+	go run $(CMD_DIR) migrate --dir migrations --dsn "$(DATABASE_URL)" down
 
-migrate-status: ## Статус миграций
-	goose -dir migrations postgres "$(PARSER_DATABASE_DSN)" status
+migrate-status: ## Статус миграций (к DATABASE_URL)
+	go run $(CMD_DIR) migrate --dir migrations --dsn "$(DATABASE_URL)" status
 
-migrate-create: ## Создать новую миграцию (usage: make migrate-create NAME=<name>)
+migrate-create: ## Создать новый SQL-файл миграции (usage: make migrate-create NAME=<name>; требует goose локально)
 	goose -dir migrations create $(NAME) sql
 
 # --- Codegen ---
