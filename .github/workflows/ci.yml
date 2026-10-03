@@ -99,10 +99,10 @@ jobs:
         run: go build ./...
 
       - name: Build binary
-        run: go build -ldflags="-s -w" -o parser ./cmd/parser
+        run: go build -ldflags="-s -w" -o task-hunter ./cmd/task-hunter
 
       - name: Check binary size
-        run: ls -lh ./parser
+        run: ls -lh ./task-hunter
 
   # --- Docker сборка ---
   docker:
