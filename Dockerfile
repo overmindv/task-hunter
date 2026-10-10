@@ -6,6 +6,8 @@ ARG TARGETARCH=amd64
 
 ARG GOPROXY
 ENV GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
+ARG GO_BUILD_PARALLEL=2
+ENV GOFLAGS=-p=${GO_BUILD_PARALLEL}
 
 RUN apk add --no-cache git ca-certificates
 
@@ -13,13 +15,15 @@ WORKDIR /app
 
 # Копируем модули для кеширования зависимостей
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,id=overmindv-gomod,target=/go/pkg/mod go mod download
 
 # Копируем исходный код
 COPY . .
 
 # Сборка бинарника
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+RUN --mount=type=cache,id=overmindv-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=overmindv-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /app/task-hunter ./cmd/task-hunter
 # Telegram-сбор отключён: cmd/telegram-session и internal/parser/source/telegram
 # компилируются только с тегом //go:build telegram, поэтому gotd/td (крупная
