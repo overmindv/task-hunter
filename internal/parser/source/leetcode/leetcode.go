@@ -25,6 +25,20 @@
 //	    questionId title titleSlug difficulty content topicTags { name }
 //	  }
 //	}
+//
+// Запрос problem-list (набор задач по ссылке /problem-list/{slug}):
+//
+//	query favoriteQuestionList($favoriteSlug: String!) {
+//	  favoriteQuestionList(favoriteSlug: $favoriteSlug) {
+//	    hasMore
+//	    questions { title titleSlug difficulty topicTags { name } }
+//	  }
+//	}
+//
+// Ответ возвращает весь список задач разом: страницы не нужны, limit/skip
+// публичный API не учитывает. Публичное имя списка (например, "Top 100 Liked
+// Questions") без авторизации недоступно, поэтому display-имя выводит клиент
+// из slug.
 package leetcode
 
 import (
@@ -127,6 +141,16 @@ type gqlQuestionResponse struct {
 	Errors []gqlError `json:"errors,omitempty"`
 }
 
+type gqlFavoriteListResponse struct {
+	Data struct {
+		FavoriteQuestionList struct {
+			HasMore   bool             `json:"hasMore"`
+			Questions []lcProblemBrief `json:"questions"`
+		} `json:"favoriteQuestionList"`
+	} `json:"data"`
+	Errors []gqlError `json:"errors,omitempty"`
+}
+
 type gqlError struct {
 	Message string `json:"message"`
 }
@@ -179,6 +203,18 @@ const questionQuery = `query questionData($titleSlug: String!) {
     topicTags { name }
 	exampleTestcases
 	sampleTestCase
+  }
+}`
+
+const favoriteListQuery = `query favoriteQuestionList($favoriteSlug: String!) {
+  favoriteQuestionList(favoriteSlug: $favoriteSlug) {
+    hasMore
+    questions {
+      title
+      titleSlug
+      difficulty
+      topicTags { name }
+    }
   }
 }`
 
@@ -249,6 +285,81 @@ func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTa
 	}
 
 	return c.problemToRawTask(detail), nil
+}
+
+// CollectProblemListURL загружает все задачи problem-list по каноническому slug.
+// В отличие от CollectURL (одна задача) возвращает набор задач из списка.
+func (c *Collector) CollectProblemListURL(ctx context.Context, rawURL string) ([]domain.RawTask, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "leetcode.com" {
+		return nil, fmt.Errorf("leetcode: invalid problem list URL")
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) != 2 || parts[0] != "problem-list" || parts[1] == "" || !isSlug(parts[1]) {
+		return nil, fmt.Errorf("leetcode: unsupported problem list URL")
+	}
+
+	problems, err := c.fetchFavoriteList(ctx, parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("leetcode: fetch problem list: %w", err)
+	}
+
+	// Детали каждой задачи тянем тем же rate-limited запросом, что и одну задачу.
+	var tasks []domain.RawTask
+	for _, p := range problems {
+		detail, err := c.fetchQuestionDetail(ctx, p.TitleSlug)
+		if err != nil {
+			slog.Warn("leetcode: failed to fetch problem list item detail",
+				"slug", p.TitleSlug, "error", err)
+			continue
+		}
+		if detail.Content == "" || DetectBlockingPage(detail.Content) {
+			slog.Warn("leetcode: problem list item has no content, skipping", "slug", p.TitleSlug)
+			continue
+		}
+		tasks = append(tasks, c.problemToRawTask(detail))
+	}
+
+	return tasks, nil
+}
+
+// fetchFavoriteList получает набор задач leetcode problem-list через GraphQL.
+func (c *Collector) fetchFavoriteList(ctx context.Context, favoriteSlug string) ([]lcProblemBrief, error) {
+	<-c.rateLimiter.C
+
+	body, err := c.doGQL(ctx, gqlRequest{
+		Query: favoriteListQuery,
+		Variables: map[string]string{
+			"favoriteSlug": favoriteSlug,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resp gqlFavoriteListResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse favorite list response: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return nil, fmt.Errorf("graphql errors: %v", resp.Errors)
+	}
+
+	return resp.Data.FavoriteQuestionList.Questions, nil
+}
+
+// isSlug разрешает безопасные slug из букв, цифр, дефиса и подчёркивания.
+func isSlug(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, symbol := range value {
+		if (symbol < 'a' || symbol > 'z') && (symbol < 'A' || symbol > 'Z') && (symbol < '0' || symbol > '9') && symbol != '-' && symbol != '_' {
+			return false
+		}
+	}
+
+	return true
 }
 
 // fetchProblemset получает список задач через GraphQL.

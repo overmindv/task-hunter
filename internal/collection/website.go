@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/overmindv/task-hunter/internal/parser/domain"
 	"github.com/overmindv/task-hunter/internal/parser/source/codeforces"
@@ -11,9 +12,17 @@ import (
 	"github.com/overmindv/task-hunter/internal/parser/source/leetcode"
 )
 
-// WebsiteReader загружает только одну заранее проверенную каноническую ссылку.
+// WebsiteBatch — задачи, полученные по одной ссылке, и опциональный problem-list,
+// из которого они собраны (для лinks вида /problem-list/{slug}).
+type WebsiteBatch struct {
+	RawTasks    []domain.RawTask
+	ProblemList *ProblemListRef
+}
+
+// WebsiteReader загружает заранее проверенные канонические ссылки.
+// Одна ссылка может вернуть несколько задач (leetcode problem-list).
 type WebsiteReader interface {
-	ReadURL(ctx context.Context, sourceID, rawURL string) (domain.RawTask, error)
+	ReadURL(ctx context.Context, sourceID, rawURL string) (WebsiteBatch, error)
 	Close()
 }
 
@@ -44,17 +53,48 @@ func (r *DirectWebsiteReader) WithCodeforcesReaderURL(rawURL string) *DirectWebs
 	return r
 }
 
-// ReadURL получает ровно одну задачу и никогда не обходит каталог сайта.
-func (r *DirectWebsiteReader) ReadURL(ctx context.Context, sourceID, rawURL string) (domain.RawTask, error) {
+// ReadURL получает задачи по ссылке. Одиночная ссылка задачи возвращает один
+// элемент, problem-list — все задачи списка и ссылку на сам список.
+func (r *DirectWebsiteReader) ReadURL(ctx context.Context, sourceID, rawURL string) (WebsiteBatch, error) {
 	switch sourceID {
 	case "codeforces":
-		return r.codeforces.CollectURL(ctx, rawURL)
+		raw, err := r.codeforces.CollectURL(ctx, rawURL)
+		if err != nil {
+			return WebsiteBatch{}, err
+		}
+
+		return WebsiteBatch{RawTasks: []domain.RawTask{raw}}, nil
 	case "leetcode":
-		return r.leetcode.CollectURL(ctx, rawURL)
+		if isLeetCodeProblemListURL(rawURL) {
+			tasks, err := r.leetcode.CollectProblemListURL(ctx, rawURL)
+			if err != nil {
+				return WebsiteBatch{}, err
+			}
+
+			return WebsiteBatch{
+				RawTasks: tasks,
+				ProblemList: &ProblemListRef{
+					Name:      problemListName(rawURL),
+					SourceID:  sourceID,
+					SourceURL: rawURL,
+				},
+			}, nil
+		}
+		raw, err := r.leetcode.CollectURL(ctx, rawURL)
+		if err != nil {
+			return WebsiteBatch{}, err
+		}
+
+		return WebsiteBatch{RawTasks: []domain.RawTask{raw}}, nil
 	case "coderun":
-		return r.coderun.CollectURL(ctx, rawURL)
+		raw, err := r.coderun.CollectURL(ctx, rawURL)
+		if err != nil {
+			return WebsiteBatch{}, err
+		}
+
+		return WebsiteBatch{RawTasks: []domain.RawTask{raw}}, nil
 	default:
-		return domain.RawTask{}, fmt.Errorf("unsupported website source %q", sourceID)
+		return WebsiteBatch{}, fmt.Errorf("unsupported website source %q", sourceID)
 	}
 }
 
@@ -63,4 +103,14 @@ func (r *DirectWebsiteReader) Close() {
 	_ = r.codeforces.Close()
 	_ = r.leetcode.Close()
 	_ = r.coderun.Close()
+}
+
+// isLeetCodeProblemListURL проверяет каноническую ссылку leetcode problem-list.
+func isLeetCodeProblemListURL(rawURL string) bool {
+	return strings.HasPrefix(rawURL, "https://leetcode.com/problem-list/")
+}
+
+// problemListName выводит display-имя списка из slug до переименования админом.
+func problemListName(rawURL string) string {
+	return strings.Trim(strings.TrimPrefix(rawURL, "https://leetcode.com/problem-list/"), "/")
 }

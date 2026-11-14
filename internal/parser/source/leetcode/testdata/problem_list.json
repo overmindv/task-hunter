@@ -1,0 +1,12 @@
+{
+  "data": {
+    "favoriteQuestionList": {
+      "hasMore": false,
+      "questions": [
+        {"title": "Two Sum", "titleSlug": "two-sum", "difficulty": "EASY", "topicTags": [{"name": "Array"}, {"name": "Hash Table"}]},
+        {"title": "Add Two Numbers", "titleSlug": "add-two-numbers", "difficulty": "MEDIUM", "topicTags": [{"name": "Linked List"}]}
+      ],
+      "__typename": "FavoriteQuestionListNode"
+    }
+  }
+}

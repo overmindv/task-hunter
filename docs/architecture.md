@@ -14,6 +14,12 @@ cron/admin API -> collection_jobs -> worker
                               task_candidates -> moderation -> published programming task
 ```
 
+## Списки задач (problem lists)
+
+Ссылка вида `https://leetcode.com/problem-list/<slug>/` собирается как именованный список, а не одна задача. Адаптер LeetCode запрашивает GraphQL-операцию `favoriteQuestionList(favoriteSlug)` — она возвращает все задачи списка одним ответом (pagination не поддерживается, `hasMore: false`). Название списка анонимно недоступно (Cloudflare + приватные endpoint'ы), поэтому имя по умолчанию равно slug.
+
+Каждая кандидатская задача несёт ссылку на список: `Candidate.ProblemList` (name/source_id/source_url). При импорте в tasks batch candidate получает `problem_list_id` (idempotent `GetOrCreateProblemList` по `source_url`). При approve публикуется задача и вставляется строка `problem_list_members`. Кандидатов можно фильтровать по `problem_list_id`. Сами списки и их участники отдаются через `GET /v1/admin/problem-lists[/{id}]` и GraphQL `problemLists`/`problemList`.
+
 ## Владение данными
 
 `task-hunter` хранит только параметры и результаты jobs, безопасные ошибки источников, lease и Telegram checkpoint. `tasks` хранит candidate payload, immutable provenance и опубликованные версии задач. Сервисы не читают таблицы друг друга.

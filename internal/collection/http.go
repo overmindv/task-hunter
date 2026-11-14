@@ -57,6 +57,8 @@ func Register(router Router, store *Store, logger *slog.Logger, gatewayToken str
 		sessionPath:     sessionPath,
 	}
 
+	search := newTaskSearch()
+	router.Handle("GET /v1/admin/task-search", handler.requireAdmin(http.HandlerFunc(search.serve)))
 	router.Handle("GET /v1/admin/collection-sources", handler.requireAdmin(http.HandlerFunc(handler.sources)))
 	router.Handle("POST /v1/admin/collection-jobs", handler.requireAdmin(http.HandlerFunc(handler.createJob)))
 	router.Handle("GET /v1/admin/collection-jobs", handler.requireAdmin(http.HandlerFunc(handler.listJobs)))

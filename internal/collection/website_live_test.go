@@ -28,10 +28,14 @@ func TestLiveWebsiteExamples(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
-			raw, err := reader.ReadURL(context.Background(), test.source, test.url)
+			batch, err := reader.ReadURL(context.Background(), test.source, test.url)
 			if err != nil {
 				t.Fatal(err)
 			}
+			if len(batch.RawTasks) != 1 {
+				t.Fatalf("expected a single task from %q, got %d", test.url, len(batch.RawTasks))
+			}
+			raw := batch.RawTasks[0]
 			if raw.Title == "" || raw.Statement == "" || len(raw.Examples) == 0 {
 				t.Fatalf("incomplete parsed task: title=%q statement=%d examples=%d", raw.Title, len(raw.Statement), len(raw.Examples))
 			}

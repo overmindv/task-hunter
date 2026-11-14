@@ -12,6 +12,7 @@ docs/development/
 ├── story-05-web-sources.md     # Story 5: Адаптеры веб-сайтов
 ├── story-06-classifier.md      # Story 6: Классификация задач
 ├── story-07-scheduler.md       # Story 7: Планировщик и точка входа
+├── story-08-problem-lists.md   # Story 8: Списки задач (problem lists)
 ```
 
 ## Сводка по story
@@ -25,8 +26,9 @@ docs/development/
 | 5 | Web Sources — адаптеры сайтов | 3 | 7 |
 | 6 | Classifier — классификация задач | 3 | 7 |
 | 7 | Scheduler — планировщик и точка входа | 2 | 4 |
+| 8 | Problem Lists — списки задач | 4 | 9 |
 
-**Итого: 18 задач, 42 SP**
+**Итого: 22 задачи, 51 SP**
 
 ## Стек
 

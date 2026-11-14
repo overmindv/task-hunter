@@ -214,18 +214,29 @@ func (w *Worker) collectTelegram(ctx context.Context, job Job, source JobSource)
 	return items, nil
 }
 
-// collectWebsite загружает и нормализует один URL.
+// collectWebsite загружает и нормализует одну ссылку.
+// Problem-list разворачивается в набор кандидатов, каждый со своим SourceURL
+// (external ID), а ссылка на список передаётся tasks через ProblemList.
 func (w *Worker) collectWebsite(ctx context.Context, job Job, source JobSource) ([]Candidate, error) {
-	raw, err := w.websites.ReadURL(ctx, source.SourceID, source.URL)
-	if err != nil {
-		return nil, err
-	}
-	candidate, err := w.normalize(ctx, job.ID, source.SourceID, source.URL, raw, nil, 0)
+	batch, err := w.websites.ReadURL(ctx, source.SourceID, source.URL)
 	if err != nil {
 		return nil, err
 	}
 
-	return []Candidate{candidate}, nil
+	items := make([]Candidate, 0, len(batch.RawTasks))
+	for _, raw := range batch.RawTasks {
+		if len(items) >= job.MaxItemsPerSource {
+			break // лимит job'а ограничивает охват крупного problem-list
+		}
+		candidate, err := w.normalize(ctx, job.ID, source.SourceID, raw.SourceURL, raw, nil, 0)
+		if err != nil {
+			return nil, fmt.Errorf("normalize website task %q: %w", raw.SourceURL, err)
+		}
+		candidate.ProblemList = batch.ProblemList
+		items = append(items, candidate)
+	}
+
+	return items, nil
 }
 
 // normalize переводит parser domain в стабильный контракт tasks.

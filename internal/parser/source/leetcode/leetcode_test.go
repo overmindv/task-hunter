@@ -386,6 +386,89 @@ func TestCollect_Forbidden(t *testing.T) {
 	}
 }
 
+// TestFetchFavoriteList проверяет парсинг problem-list через GraphQL.
+func TestFetchFavoriteList(t *testing.T) {
+	mock := &mockHTTPClient{}
+	mock.responses = map[string]mockResponse{
+		"https://leetcode.com/graphql": {
+			statusCode: 200,
+			body:       readFixture(t, "problem_list.json"),
+		},
+	}
+
+	c := NewCollector(domain.SourceLeetCode, mock)
+	c.WithMinInterval(time.Millisecond)
+
+	problems, err := c.fetchFavoriteList(context.Background(), "oy4y273c")
+	if err != nil {
+		t.Fatalf("fetchFavoriteList: %v", err)
+	}
+	if len(problems) != 2 {
+		t.Fatalf("expected 2 problems, got %d", len(problems))
+	}
+	if problems[0].TitleSlug != "two-sum" || problems[1].TitleSlug != "add-two-numbers" {
+		t.Fatalf("unexpected slugs: %#v", problems)
+	}
+}
+
+// TestCollectProblemListURL проверяет сбор всех задач problem-list с деталями.
+func TestCollectProblemListURL(t *testing.T) {
+	type response struct {
+		body string
+	}
+	responses := []response{
+		{body: readFixture(t, "problem_list.json")},          // favorite list
+		{body: readFixture(t, "problem_two_sum.json")},       // two-sum
+		{body: readFixture(t, "problem_add_two_numbers.json")}, // add-two-numbers
+	}
+	index := 0
+	mock := &callTrackingClient{
+		fn: func(req *http.Request) (*http.Response, error) {
+			if index >= len(responses) {
+				return &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(""))}, nil
+			}
+			body := responses[index].body
+			index++
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+		},
+	}
+
+	c := NewCollector(domain.SourceLeetCode, mock)
+	c.WithMinInterval(time.Millisecond)
+
+	tasks, err := c.CollectProblemListURL(context.Background(), "https://leetcode.com/problem-list/oy4y273c")
+	if err != nil {
+		t.Fatalf("CollectProblemListURL: %v", err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+	if tasks[0].Title != "Two Sum" || tasks[0].Difficulty != domain.DifficultyEasy {
+		t.Fatalf("unexpected first task: %#v", tasks[0])
+	}
+	if tasks[0].Source.ID != domain.SourceLeetCode {
+		t.Fatalf("unexpected source: %#v", tasks[0].Source)
+	}
+	if got := tasks[1].Title; got != "Add Two Numbers" {
+		t.Fatalf("unexpected second title %q", got)
+	}
+}
+
+// TestCollectProblemListURLRejectsInvalidURL проверяет валидацию ссылки списка.
+func TestCollectProblemListURLRejectsInvalidURL(t *testing.T) {
+	c := NewCollector(domain.SourceLeetCode, &callTrackingClient{})
+	for _, rawURL := range []string{
+		"https://leetcode.com/problems/two-sum",
+		"http://leetcode.com/problem-list/oy4y273c",
+		"https://evil.example.com/problem-list/oy4y273c",
+		"https://leetcode.com/problem-list/",
+	} {
+		if _, err := c.CollectProblemListURL(context.Background(), rawURL); err == nil {
+			t.Errorf("expected error for %q", rawURL)
+		}
+	}
+}
+
 // TestRateLimiter проверяет, что rate limiter не пропускает слишком частые запросы.
 func TestRateLimiter(t *testing.T) {
 	mock := &mockHTTPClient{}

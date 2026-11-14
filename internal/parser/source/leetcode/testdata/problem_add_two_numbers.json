@@ -1,0 +1,14 @@
+{
+  "data": {
+    "question": {
+      "questionId": "2",
+      "title": "Add Two Numbers",
+      "titleSlug": "add-two-numbers",
+      "difficulty": "MEDIUM",
+      "content": "<p>You are given two <strong>non-empty</strong> linked lists representing two non-negative integers. Add the two numbers and return the sum as a linked list.</p>\n<pre>Example 1:\nInput: l1 = [2,4,3], l2 = [5,6,4]\nOutput: [7,0,8]\nExplanation: 342 + 465 = 807.</pre>\n<ul>\n<li>Constraints</li>\n<li>The number of nodes in each linked list is in the range [1, 100].</li>\n</ul>",
+      "topicTags": [{"name": "Linked List"}, {"name": "Math"}],
+      "exampleTestcases": "l1 = [2,4,3], l2 = [5,6,4]\n[7,0,8]",
+      "sampleTestCase": "l1 = [2,4,3], l2 = [5,6,4]"
+    }
+  }
+}
