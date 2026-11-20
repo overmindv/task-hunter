@@ -62,6 +62,8 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 // TestNewCollector проверяет создание коллектора.
 func TestNewCollector(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceCodeRun, http.DefaultClient)
 	if c.ID() != domain.SourceCodeRun {
 		t.Errorf("expected %s, got %s", domain.SourceCodeRun, c.ID())
@@ -70,6 +72,8 @@ func TestNewCollector(t *testing.T) {
 
 // TestSourceImplements проверяет, что Collector реализует source.Collector.
 func TestSourceImplements(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceCodeRun, http.DefaultClient)
 	if err := c.Connect(context.Background()); err != nil {
 		t.Errorf("Connect: %v", err)
@@ -81,6 +85,8 @@ func TestSourceImplements(t *testing.T) {
 
 // TestParseCatalog проверяет парсинг страницы каталога (golden-тест).
 func TestParseCatalog(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://coderun.yandex.ru/catalog": {
@@ -112,6 +118,8 @@ func TestParseCatalog(t *testing.T) {
 
 // TestParseProblemPage проверяет парсинг страницы задачи (golden-тест).
 func TestParseProblemPage(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://coderun.yandex.ru/catalog": {
@@ -168,6 +176,8 @@ func TestParseProblemPage(t *testing.T) {
 
 // TestCollect_404 проверяет обработку 404 (пропуск задачи).
 func TestCollect_404(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://coderun.yandex.ru/catalog": {
@@ -204,6 +214,8 @@ func TestCollect_404(t *testing.T) {
 
 // TestCollect_EmptyHTML проверяет обработку страницы без условия задачи.
 func TestCollect_EmptyHTML(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://coderun.yandex.ru/catalog": {
@@ -240,6 +252,8 @@ func TestCollect_EmptyHTML(t *testing.T) {
 
 // TestCollect_APICatalogError проверяет ошибку каталога.
 func TestCollect_APICatalogError(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://coderun.yandex.ru/catalog": {
@@ -259,6 +273,8 @@ func TestCollect_APICatalogError(t *testing.T) {
 
 // TestRateLimiter проверяет, что rate limiter не пропускает слишком частые запросы.
 func TestRateLimiter(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://coderun.yandex.ru/catalog": {
@@ -282,6 +298,8 @@ func TestRateLimiter(t *testing.T) {
 
 // TestHasProblemStatement проверяет детекцию условия задачи.
 func TestHasProblemStatement(t *testing.T) {
+	t.Parallel()
+
 	if !hasProblemStatement(readFixture(t, "problem_median.html")) {
 		t.Error("expected true for valid problem page")
 	}
@@ -303,26 +321,28 @@ func TestHasProblemStatement(t *testing.T) {
 
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)
 	}
+
 	return string(data)
 }
 
 func writeGolden(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // golden-файл не содержит секретов
 		t.Fatalf("write golden %s: %v", path, err)
 	}
 }
 
 func readGolden(t *testing.T, path string) string {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", path, err)
 	}
+
 	return string(data)
 }
 
@@ -332,8 +352,9 @@ func formatCatalogProblems(problems []catalogProblem) string {
 		if i > 0 {
 			b.WriteString("\n")
 		}
-		b.WriteString(fmt.Sprintf("%d. %s [%s] → /problem/%s", i+1, p.Title, p.Difficulty, p.Slug))
+		fmt.Fprintf(&b, "%d. %s [%s] → /problem/%s", i+1, p.Title, p.Difficulty, p.Slug)
 	}
+
 	return b.String()
 }
 
@@ -343,5 +364,6 @@ func formatRawTask(raw domain.RawTask) string {
 	b.WriteString("Name: " + raw.Source.Name + "\n")
 	b.WriteString("URL: " + raw.SourceURL + "\n")
 	b.WriteString("Content length: " + fmt.Sprint(len(raw.RawContent)) + "\n")
+
 	return b.String()
 }

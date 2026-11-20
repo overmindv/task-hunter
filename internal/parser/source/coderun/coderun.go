@@ -26,6 +26,8 @@ import (
 	"github.com/overmindv/task-hunter/internal/parser/source"
 )
 
+const httpsScheme = "https"
+
 // httpClient — интерфейс HTTP-клиента для мокания в тестах.
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -58,12 +60,14 @@ func NewCollector(id domain.SourceID, client httpClient) *Collector {
 func (c *Collector) WithMinInterval(d time.Duration) *Collector {
 	c.rateLimiter.Stop()
 	c.rateLimiter = time.NewTicker(d)
+
 	return c
 }
 
 // WithUserAgent устанавливает User-Agent.
 func (c *Collector) WithUserAgent(ua string) *Collector {
 	c.userAgent = ua
+
 	return c
 }
 
@@ -80,6 +84,7 @@ func (c *Collector) Connect(_ context.Context) error {
 // Close освобождает ресурсы.
 func (c *Collector) Close() error {
 	c.rateLimiter.Stop()
+
 	return nil
 }
 
@@ -105,6 +110,7 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 
 	if len(problems) == 0 {
 		slog.Debug("coderun: no problems found in catalog")
+
 		return nil, nil
 	}
 
@@ -121,22 +127,26 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 		if err != nil {
 			if isNotFound(err) {
 				slog.Warn("coderun: problem not found (404), skipping", "slug", p.Slug)
+
 				continue
 			}
 			slog.Warn("coderun: failed to fetch problem page",
 				"slug", p.Slug, "error", err)
+
 			continue
 		}
 
 		// Проверяем, что HTML содержит условие задачи
 		if !hasProblemStatement(html) {
 			slog.Warn("coderun: problem page has no statement, skipping", "slug", p.Slug)
+
 			continue
 		}
 
 		rawTask, err := c.problemToStructuredRawTask(ctx, p, html)
 		if err != nil {
 			slog.Warn("coderun: failed to load structured problem", "slug", p.Slug, "error", err)
+
 			continue
 		}
 		tasks = append(tasks, rawTask)
@@ -149,7 +159,7 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 // CollectURL загружает одну задачу CodeRun без чтения каталога.
 func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTask, error) {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "coderun.yandex.ru" {
+	if err != nil || parsed.Scheme != httpsScheme || parsed.Hostname() != "coderun.yandex.ru" {
 		return domain.RawTask{}, fmt.Errorf("coderun: invalid task URL")
 	}
 	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
@@ -335,6 +345,7 @@ func parseRetryAfter(resp *http.Response) string {
 	if ra := resp.Header.Get("Retry-After"); ra != "" {
 		return ra
 	}
+
 	return "unknown"
 }
 
