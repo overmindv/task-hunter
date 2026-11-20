@@ -85,6 +85,7 @@ func normalizeMarkdownHeaders(text string) string {
 			lines[i] = strings.Repeat(" ", len(line)-len(strings.TrimLeft(line, " "))) + trimmed
 		}
 	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -94,6 +95,7 @@ func unifyExampleLanguage(text string) string {
 	text = strings.ReplaceAll(text, "**Вывод:**", "**Output:**")
 	text = strings.ReplaceAll(text, "Ввод:", "**Input:**")
 	text = strings.ReplaceAll(text, "Вывод:", "**Output:**")
+
 	return text
 }
 
@@ -102,6 +104,7 @@ func truncateField(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
+
 	return s[:maxLen] + "..."
 }
 
