@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,15 @@ import (
 )
 
 var update = flag.Bool("update", false, "update golden files")
+
+const codeforcesAPIResponse = `{
+		"status": "OK",
+		"result": {
+			"problems": [
+				{"contestId": 4, "index": "A", "name": "Watermelon", "rating": 800, "tags": ["math"]}
+			]
+		}
+	}`
 
 // --- Mock HTTP client ---
 
@@ -44,6 +54,8 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 // TestNewCollector проверяет создание коллектора.
 func TestNewCollector(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceCodeforces, http.DefaultClient)
 	if c.ID() != domain.SourceCodeforces {
 		t.Errorf("expected %s, got %s", domain.SourceCodeforces, c.ID())
@@ -52,6 +64,8 @@ func TestNewCollector(t *testing.T) {
 
 // TestMapRating_Unknown проверяет рейтинг 0.
 func TestMapRating_Unknown(t *testing.T) {
+	t.Parallel()
+
 	d := mapRatingToDifficulty(0)
 	if d != domain.DifficultyUnknown {
 		t.Errorf("expected Unknown, got %v", d)
@@ -60,6 +74,8 @@ func TestMapRating_Unknown(t *testing.T) {
 
 // TestMapRating_Easy проверяет лёгкие задачи.
 func TestMapRating_Easy(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		rating int
 		want   domain.Difficulty
@@ -69,7 +85,9 @@ func TestMapRating_Easy(t *testing.T) {
 		{1199, domain.DifficultyEasy},
 	}
 	for _, tc := range tests {
-		t.Run(string(rune(tc.rating)), func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.rating), func(t *testing.T) {
+			t.Parallel()
+
 			d := mapRatingToDifficulty(tc.rating)
 			if d != tc.want {
 				t.Errorf("rating %d: expected %v, got %v", tc.rating, tc.want, d)
@@ -80,6 +98,8 @@ func TestMapRating_Easy(t *testing.T) {
 
 // TestMapRating_Medium проверяет средние задачи.
 func TestMapRating_Medium(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		rating int
 		want   domain.Difficulty
@@ -89,7 +109,9 @@ func TestMapRating_Medium(t *testing.T) {
 		{1600, domain.DifficultyMedium},
 	}
 	for _, tc := range tests {
-		t.Run(string(rune(tc.rating)), func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.rating), func(t *testing.T) {
+			t.Parallel()
+
 			d := mapRatingToDifficulty(tc.rating)
 			if d != tc.want {
 				t.Errorf("rating %d: expected %v, got %v", tc.rating, tc.want, d)
@@ -100,6 +122,8 @@ func TestMapRating_Medium(t *testing.T) {
 
 // TestMapRating_Hard проверяет сложные задачи.
 func TestMapRating_Hard(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		rating int
 		want   domain.Difficulty
@@ -109,7 +133,9 @@ func TestMapRating_Hard(t *testing.T) {
 		{3500, domain.DifficultyHard},
 	}
 	for _, tc := range tests {
-		t.Run(string(rune(tc.rating)), func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.rating), func(t *testing.T) {
+			t.Parallel()
+
 			d := mapRatingToDifficulty(tc.rating)
 			if d != tc.want {
 				t.Errorf("rating %d: expected %v, got %v", tc.rating, tc.want, d)
@@ -120,6 +146,8 @@ func TestMapRating_Hard(t *testing.T) {
 
 // TestProblemToRawTask проверяет преобразование API задачи в RawTask.
 func TestProblemToRawTask(t *testing.T) {
+	t.Parallel()
+
 	client := &mockHTTPClient{}
 	c := NewCollector(domain.SourceCodeforces, client)
 
@@ -151,17 +179,12 @@ func TestProblemToRawTask(t *testing.T) {
 
 // TestCollect_MockAPI проверяет сбор задач через mock API.
 func TestCollect_MockAPI(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 
 	// API response с одной задачей
-	apiResponse := `{
-		"status": "OK",
-		"result": {
-			"problems": [
-				{"contestId": 4, "index": "A", "name": "Watermelon", "rating": 800, "tags": ["math"]}
-			]
-		}
-	}`
+	apiResponse := codeforcesAPIResponse
 
 	problemHTML := `<html><body><div class="problem-statement"><div class="title">A. Watermelon</div><div class="statement"><p>Test</p></div></div></body></html>`
 
@@ -193,10 +216,12 @@ func TestCollect_MockAPI(t *testing.T) {
 
 // TestCollectURLUsesReaderFallback проверяет fallback при техническом HTTP 200 Codeforces.
 func TestCollectURLUsesReaderFallback(t *testing.T) {
+	t.Parallel()
+
 	readerBody := `Title: Problem - 1A - Codeforces
 
 Markdown Content:
-A. Theatre Square
+A. Theater Square
 
 time limit per test
 
@@ -246,23 +271,18 @@ Output
 	if err != nil {
 		t.Fatal(err)
 	}
-	if raw.Title != "A. Theatre Square" || len(raw.Examples) != 1 || raw.Examples[0].Output != "4" {
+	if raw.Title != "A. Theater Square" || len(raw.Examples) != 1 || raw.Examples[0].Output != "4" {
 		t.Fatalf("unexpected fallback task: %#v", raw)
 	}
 }
 
 // TestCollect_Deduplication проверяет, что повторный вызов не создаёт дубликатов.
 func TestCollect_Deduplication(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 
-	apiResponse := `{
-		"status": "OK",
-		"result": {
-			"problems": [
-				{"contestId": 4, "index": "A", "name": "Watermelon", "rating": 800, "tags": ["math"]}
-			]
-		}
-	}`
+	apiResponse := codeforcesAPIResponse
 
 	problemHTML := `<html><body>Watermelon</body></html>`
 
@@ -294,6 +314,8 @@ func TestCollect_Deduplication(t *testing.T) {
 
 // TestCollect_APIError проверяет обработку ошибки API.
 func TestCollect_APIError(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]string{
 		"https://codeforces.com/api/problemset.problems": `{"status": "FAILED"}`,
@@ -310,6 +332,8 @@ func TestCollect_APIError(t *testing.T) {
 
 // TestRateLimiter проверяет, что rate limiter не пропускает слишком частые запросы.
 func TestRateLimiter(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]string{
 		"https://codeforces.com/api/problemset.problems": `{"status": "OK", "result": {"problems": []}}`,
@@ -330,6 +354,8 @@ func TestRateLimiter(t *testing.T) {
 
 // TestSourceImplements проверяет, что Collector реализует source.Collector.
 func TestSourceImplements(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceCodeforces, http.DefaultClient)
 	if err := c.Connect(context.Background()); err != nil {
 		t.Errorf("Connect: %v", err)
@@ -343,26 +369,28 @@ func TestSourceImplements(t *testing.T) {
 
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)
 	}
+
 	return string(data)
 }
 
 func writeGolden(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // golden-файл не содержит секретов
 		t.Fatalf("write golden %s: %v", path, err)
 	}
 }
 
 func readGolden(t *testing.T, path string) string {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", path, err)
 	}
+
 	return string(data)
 }
 
@@ -372,6 +400,7 @@ func formatRawTask(raw domain.RawTask) string {
 	b.WriteString("Name: " + raw.Source.Name + "\n")
 	b.WriteString("URL: " + raw.SourceURL + "\n")
 	b.WriteString("HTML length: " + fmtLen(len(raw.RawContent)) + "\n")
+
 	return b.String()
 }
 
