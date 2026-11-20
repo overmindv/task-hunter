@@ -72,6 +72,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (*SchedulerSummary, error) {
 				"error", r.Err,
 			)
 			summary.ErrorCount++
+
 			continue
 		}
 		for _, task := range r.Tasks {
@@ -90,6 +91,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (*SchedulerSummary, error) {
 	for _, rts := range allRaw {
 		if err := ctx.Err(); err != nil {
 			slog.Warn("scheduler: context canceled, stopping collection", "error", err)
+
 			break
 		}
 
@@ -100,6 +102,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (*SchedulerSummary, error) {
 				"error", err,
 			)
 			summary.ErrorCount++
+
 			continue
 		}
 
@@ -113,6 +116,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (*SchedulerSummary, error) {
 				"error", err,
 			)
 			summary.ErrorCount++
+
 			continue
 		}
 
@@ -144,6 +148,7 @@ func (s *Scheduler) Start(ctx context.Context, cronExpr string) error {
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
+
 		return fmt.Errorf("scheduler: already running")
 	}
 	s.running = true
@@ -155,6 +160,7 @@ func (s *Scheduler) Start(ctx context.Context, cronExpr string) error {
 		s.mu.Lock()
 		s.running = false
 		s.mu.Unlock()
+
 		return fmt.Errorf("scheduler: connect sources: %w", err)
 	}
 
@@ -171,6 +177,7 @@ func (s *Scheduler) Start(ctx context.Context, cronExpr string) error {
 		summary, err := s.RunOnce(runCtx)
 		if err != nil {
 			slog.Error("scheduler: run cycle error", "error", err)
+
 			return
 		}
 		_ = summary
@@ -180,6 +187,7 @@ func (s *Scheduler) Start(ctx context.Context, cronExpr string) error {
 		s.mu.Lock()
 		s.running = false
 		s.mu.Unlock()
+
 		return fmt.Errorf("scheduler: invalid cron expression %q: %w", cronExpr, err)
 	}
 
@@ -236,6 +244,7 @@ func (s *Scheduler) Stop() error {
 func (s *Scheduler) IsRunning() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.running
 }
 

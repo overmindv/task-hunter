@@ -102,9 +102,11 @@ func (a *App) Run(ctx context.Context) error {
 		return err
 	case <-a.stopCh:
 		slog.Info("app: stopping...")
+
 		return nil
 	case <-ctx.Done():
 		slog.Info("app: context canceled")
+
 		return ctx.Err()
 	}
 }
@@ -128,6 +130,7 @@ func (a *App) Shutdown(timeout time.Duration) error {
 	}
 
 	slog.Info("app: shutdown complete")
+
 	return nil
 }
 
@@ -162,6 +165,7 @@ func (a *App) openDB() (*sql.DB, error) {
 
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
+
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 
@@ -188,6 +192,7 @@ func (a *App) createCollector(s config.ActiveSource) source.Collector {
 	switch s.ID {
 	case "telegram_analytics", "telegram_ml", "telegram_algorithms":
 		slog.Warn("app: telegram collector not fully implemented, skipping", "source", s.ID)
+
 		return nil
 	case "leetcode":
 		// Импорт избегает циклической зависимости
@@ -198,6 +203,7 @@ func (a *App) createCollector(s config.ActiveSource) source.Collector {
 		return createCodeRunCollector()
 	default:
 		slog.Warn("app: unknown source", "source", s.ID)
+
 		return nil
 	}
 }
@@ -222,9 +228,11 @@ func maskDSN(dsn string) string {
 					result[j] = '*'
 				}
 			}
+
 			break
 		}
 	}
+
 	return string(result)
 }
 
