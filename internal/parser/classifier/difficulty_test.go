@@ -10,6 +10,8 @@ import (
 // TestClassifyDifficulty проверяет определение сложности через RuleBasedClassifier.
 
 func TestClassifyDifficulty_EasyByMarkers(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -27,6 +29,8 @@ func TestClassifyDifficulty_EasyByMarkers(t *testing.T) {
 }
 
 func TestClassifyDifficulty_HardByMarkers(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -44,6 +48,8 @@ func TestClassifyDifficulty_HardByMarkers(t *testing.T) {
 }
 
 func TestClassifyDifficulty_MediumByDefault(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -66,6 +72,8 @@ func TestClassifyDifficulty_MediumByDefault(t *testing.T) {
 }
 
 func TestClassifyDifficulty_EasyByLength(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -83,6 +91,8 @@ func TestClassifyDifficulty_EasyByLength(t *testing.T) {
 }
 
 func TestClassifyDifficulty_HardByLength(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -106,6 +116,8 @@ func TestClassifyDifficulty_HardByLength(t *testing.T) {
 }
 
 func TestClassifyDifficulty_EmptyDescription(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -125,6 +137,8 @@ func TestClassifyDifficulty_EmptyDescription(t *testing.T) {
 // TestDifficultyAnalyzer_Direct проверяет DifficultyAnalyzer напрямую.
 
 func TestDifficultyAnalyzer_EasyMarker(t *testing.T) {
+	t.Parallel()
+
 	a := NewDifficultyAnalyzer()
 	d := a.Analyze("Простая задача", "Базовый пример для начинающих", nil)
 	if d != domain.DifficultyEasy {
@@ -133,6 +147,8 @@ func TestDifficultyAnalyzer_EasyMarker(t *testing.T) {
 }
 
 func TestDifficultyAnalyzer_HardMarker(t *testing.T) {
+	t.Parallel()
+
 	a := NewDifficultyAnalyzer()
 	d := a.Analyze("", "LCA и heavy-light декомпозиция", nil)
 	if d != domain.DifficultyHard {
@@ -141,6 +157,8 @@ func TestDifficultyAnalyzer_HardMarker(t *testing.T) {
 }
 
 func TestDifficultyAnalyzer_MediumByDefault(t *testing.T) {
+	t.Parallel()
+
 	a := NewDifficultyAnalyzer()
 	// Описание средней длины (300-2000 символов), без маркеров
 	desc := "Напишите программу, которая читает данные из источника и выводит результат. " +
@@ -157,6 +175,8 @@ func TestDifficultyAnalyzer_MediumByDefault(t *testing.T) {
 }
 
 func TestDifficultyAnalyzer_EmptyTask(t *testing.T) {
+	t.Parallel()
+
 	a := NewDifficultyAnalyzer()
 	d := a.Analyze("", "", nil)
 	if d != domain.DifficultyMedium {
@@ -165,6 +185,8 @@ func TestDifficultyAnalyzer_EmptyTask(t *testing.T) {
 }
 
 func TestDifficultyAnalyzer_EasyMarkerOverridesLength(t *testing.T) {
+	t.Parallel()
+
 	a := NewDifficultyAnalyzer()
 	// Длинный текст, но с easy маркерами
 	longEasy := make([]byte, 2500)
