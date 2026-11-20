@@ -60,6 +60,12 @@ import (
 	"github.com/overmindv/task-hunter/internal/parser/source"
 )
 
+const (
+	httpsScheme  = "https"
+	twoSumTitle  = "Two Sum"
+	leetcodeHost = "leetcode.com"
+)
+
 // httpClient — интерфейс HTTP-клиента для мокания в тестах.
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -92,12 +98,14 @@ func NewCollector(id domain.SourceID, client httpClient) *Collector {
 func (c *Collector) WithMinInterval(d time.Duration) *Collector {
 	c.rateLimiter.Stop()
 	c.rateLimiter = time.NewTicker(d)
+
 	return c
 }
 
 // WithUserAgent устанавливает User-Agent.
 func (c *Collector) WithUserAgent(ua string) *Collector {
 	c.userAgent = ua
+
 	return c
 }
 
@@ -114,6 +122,7 @@ func (c *Collector) Connect(_ context.Context) error {
 // Close освобождает ресурсы.
 func (c *Collector) Close() error {
 	c.rateLimiter.Stop()
+
 	return nil
 }
 
@@ -233,6 +242,7 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 
 	if len(problems) == 0 {
 		slog.Debug("leetcode: no problems found")
+
 		return nil, nil
 	}
 
@@ -249,12 +259,14 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 		if err != nil {
 			slog.Warn("leetcode: failed to fetch question detail",
 				"slug", p.TitleSlug, "error", err)
+
 			continue
 		}
 
 		// Проверяем, что задача содержит условие
 		if detail.Content == "" {
 			slog.Warn("leetcode: question has no content, skipping", "slug", p.TitleSlug)
+
 			continue
 		}
 
@@ -269,7 +281,7 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 // CollectURL загружает одну задачу LeetCode по каноническому slug.
 func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTask, error) {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "leetcode.com" {
+	if err != nil || parsed.Scheme != httpsScheme || parsed.Hostname() != leetcodeHost {
 		return domain.RawTask{}, fmt.Errorf("leetcode: invalid task URL")
 	}
 	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
@@ -291,7 +303,7 @@ func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTa
 // В отличие от CollectURL (одна задача) возвращает набор задач из списка.
 func (c *Collector) CollectProblemListURL(ctx context.Context, rawURL string) ([]domain.RawTask, error) {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "leetcode.com" {
+	if err != nil || parsed.Scheme != httpsScheme || parsed.Hostname() != leetcodeHost {
 		return nil, fmt.Errorf("leetcode: invalid problem list URL")
 	}
 	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
@@ -311,10 +323,12 @@ func (c *Collector) CollectProblemListURL(ctx context.Context, rawURL string) ([
 		if err != nil {
 			slog.Warn("leetcode: failed to fetch problem list item detail",
 				"slug", p.TitleSlug, "error", err)
+
 			continue
 		}
 		if detail.Content == "" || DetectBlockingPage(detail.Content) {
 			slog.Warn("leetcode: problem list item has no content, skipping", "slug", p.TitleSlug)
+
 			continue
 		}
 		tasks = append(tasks, c.problemToRawTask(detail))
@@ -577,6 +591,7 @@ func MapDifficulty(d string) domain.Difficulty {
 // DetectBlockingPage проверяет, является ли HTML страницей блокировки (капча, login wall).
 func DetectBlockingPage(html string) bool {
 	lower := strings.ToLower(html)
+
 	return strings.Contains(lower, "captcha") ||
 		strings.Contains(lower, "cf-browser-verification") ||
 		strings.Contains(lower, "access denied") ||
