@@ -15,6 +15,7 @@ type mockRepo struct {
 
 func (m *mockRepo) Save(_ context.Context, task domain.Task) error {
 	m.tasks[task.SourceHash] = &task
+
 	return nil
 }
 
@@ -23,6 +24,7 @@ func (m *mockRepo) FindBySourceHash(_ context.Context, hash string) (*domain.Tas
 	if !ok {
 		return nil, nil
 	}
+
 	return t, nil
 }
 
@@ -40,6 +42,8 @@ func (m *mockRepo) Count(_ context.Context, filter Filter) (int, error) {
 
 // TestSaveIfNotDuplicate_Unit_New проверяет сохранение новой задачи через mock.
 func TestSaveIfNotDuplicate_Unit_New(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	repo := &mockRepo{tasks: make(map[string]*domain.Task)}
 
@@ -59,6 +63,8 @@ func TestSaveIfNotDuplicate_Unit_New(t *testing.T) {
 
 // TestSaveIfNotDuplicate_Unit_Dup проверяет пропуск дубликата через mock.
 func TestSaveIfNotDuplicate_Unit_Dup(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	repo := &mockRepo{tasks: make(map[string]*domain.Task)}
 
@@ -83,6 +89,8 @@ func TestSaveIfNotDuplicate_Unit_Dup(t *testing.T) {
 
 // TestSaveIfNotDuplicate_Unit_AutoHash проверяет автогенерацию хеша.
 func TestSaveIfNotDuplicate_Unit_AutoHash(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	repo := &mockRepo{tasks: make(map[string]*domain.Task)}
 
@@ -111,6 +119,8 @@ func TestSaveIfNotDuplicate_Unit_AutoHash(t *testing.T) {
 
 // TestEnsureFilter проверяет значения по умолчанию.
 func TestEnsureFilter(t *testing.T) {
+	t.Parallel()
+
 	f := EnsureFilter(Filter{Limit: 0})
 	if f.Limit != defaultLimit {
 		t.Errorf("expected default limit %d, got %d", defaultLimit, f.Limit)

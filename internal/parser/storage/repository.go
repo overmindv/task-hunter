@@ -54,12 +54,14 @@ func SaveIfNotDuplicate(ctx context.Context, task domain.Task, repo Repository) 
 			"source_id", task.Source.ID,
 			"existing_id", existing.ID,
 		)
+
 		return false, nil
 	}
 
 	if err := repo.Save(ctx, task); err != nil {
 		return false, err
 	}
+
 	return true, nil
 }
 
@@ -80,6 +82,7 @@ func EnsureFilter(f Filter) Filter {
 	if f.Offset < 0 {
 		f.Offset = 0
 	}
+
 	return f
 }
 
