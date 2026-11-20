@@ -80,6 +80,8 @@ func TestLoad_Defaults(t *testing.T) {
 // TestLoad_MissingDSN терпит отсутствие DSN: подключение к PostgreSQL владеет parker
 // (DATABASE_URL), а PARSER_DATABASE_DSN используется лишь отдельным parser-бинарём.
 func TestLoad_MissingDSN(t *testing.T) {
+	t.Parallel()
+
 	_, err := Load()
 	if err != nil {
 		t.Fatalf("expected no error without DSN, got: %v", err)
@@ -166,6 +168,8 @@ func TestActiveSources_Multiple(t *testing.T) {
 
 // TestValidateRuntimeWithoutTelegram проверяет локальный запуск без внешних credentials.
 func TestValidateRuntimeWithoutTelegram(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Tasks: TasksConfig{
 			URL:        "http://tasks:8080",
@@ -194,6 +198,8 @@ func TestValidateRuntimeWithoutTelegram(t *testing.T) {
 
 // TestValidateRuntimeRequiresEnabledTelegram проверяет credentials включённого Telegram.
 func TestValidateRuntimeRequiresEnabledTelegram(t *testing.T) {
+	t.Parallel()
+
 	cfg := Config{
 		Tasks: TasksConfig{
 			URL:        "http://tasks:8080",
