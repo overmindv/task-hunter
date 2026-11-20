@@ -110,6 +110,8 @@ func (m *mockTGClient) GetMessages(_ context.Context, channelID, accessHash int6
 
 // TestNewCollector проверяет создание коллектора.
 func TestNewCollector(t *testing.T) {
+	t.Parallel()
+
 	client := newMockTGClient()
 	c, err := NewCollector(domain.SourceTelegramAlgorithms, client, []string{"algoses"})
 	if err != nil {
@@ -123,6 +125,8 @@ func TestNewCollector(t *testing.T) {
 
 // TestNewCollector_NoChannels проверяет ошибку без каналов.
 func TestNewCollector_NoChannels(t *testing.T) {
+	t.Parallel()
+
 	client := newMockTGClient()
 	_, err := newFastCollector(domain.SourceTelegramAlgorithms, client, nil)
 	if err == nil {
@@ -132,6 +136,8 @@ func TestNewCollector_NoChannels(t *testing.T) {
 
 // TestConnect_ResolvesChannels проверяет подключение и разрешение каналов.
 func TestConnect_ResolvesChannels(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 
@@ -159,6 +165,8 @@ func TestConnect_ResolvesChannels(t *testing.T) {
 
 // TestConnect_FailedResolve проверяет, что ошибка разрешения канала логируется, но не фатальна.
 func TestConnect_FailedResolve(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	// Не добавляем каналы — resolve вернёт ошибку
 
@@ -175,6 +183,8 @@ func TestConnect_FailedResolve(t *testing.T) {
 
 // TestCollect_FirstCall проверяет первый сбор (все сообщения).
 func TestCollect_FirstCall(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 
@@ -202,6 +212,8 @@ func TestCollect_FirstCall(t *testing.T) {
 
 // TestCollect_Incremental проверяет инкрементальный сбор.
 func TestCollect_Incremental(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 
@@ -231,6 +243,8 @@ func TestCollect_Incremental(t *testing.T) {
 
 // TestCollect_MultipleChannels проверяет сбор из нескольких каналов.
 func TestCollect_MultipleChannels(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 	mock.channels["postupashki_ml"] = struct{ id, accessHash int64 }{id: 789, accessHash: 101}
@@ -253,6 +267,8 @@ func TestCollect_MultipleChannels(t *testing.T) {
 
 // TestCollect_ErrorDoesntStop проверяет, что ошибка в одном канале не останавливает другие.
 func TestCollect_ErrorDoesntStop(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 	mock.messagesErr = fmt.Errorf("rate limit")
@@ -274,6 +290,8 @@ func TestCollect_ErrorDoesntStop(t *testing.T) {
 
 // TestCollect_MessageToRawTask проверяет преобразование сообщения в RawTask.
 func TestCollect_MessageToRawTask(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 
@@ -315,6 +333,8 @@ func TestCollect_MessageToRawTask(t *testing.T) {
 
 // TestClose проверяет закрытие коллектора.
 func TestClose(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 
@@ -331,6 +351,8 @@ func TestClose(t *testing.T) {
 
 // TestSourceManagerIntegration проверяет работу Telegram Collector через source.Manager.
 func TestSourceManagerIntegration(t *testing.T) {
+	t.Parallel()
+
 	mock := newMockTGClient()
 	mock.channels["algoses"] = struct{ id, accessHash int64 }{id: 123, accessHash: 456}
 
