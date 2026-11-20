@@ -16,13 +16,13 @@ func TestNormalizeWebsiteURL(t *testing.T) {
 		source  string
 		wantErr bool
 	}{
-		{name: "codeforces", url: "https://codeforces.com/problemset/problem/4/A", source: "codeforces"},
-		{name: "codeforces contest", url: "https://codeforces.com/contest/4/problem/a?locale=ru", source: "codeforces"},
-		{name: "leetcode", url: "https://leetcode.com/problems/two-sum/", source: "leetcode"},
-		{name: "leetcode description", url: "https://www.leetcode.com/problems/two-sum/description/?envType=daily", source: "leetcode"},
-		{name: "leetcode problem-list", url: "https://leetcode.com/problem-list/oy4y273c/", source: "leetcode"},
-		{name: "leetcode problem-list upper", url: "https://leetcode.com/problem-list/Top-100-Liked/", source: "leetcode"},
-		{name: "coderun", url: "https://coderun.yandex.ru/problem/median", source: "coderun"},
+		{name: sourceCodeforces, url: "https://codeforces.com/problemset/problem/4/A", source: sourceCodeforces},
+		{name: "codeforces contest", url: "https://codeforces.com/contest/4/problem/a?locale=ru", source: sourceCodeforces},
+		{name: sourceLeetCode, url: "https://leetcode.com/problems/two-sum/", source: sourceLeetCode},
+		{name: "leetcode description", url: "https://www.leetcode.com/problems/two-sum/description/?envType=daily", source: sourceLeetCode},
+		{name: "leetcode problem-list", url: "https://leetcode.com/problem-list/oy4y273c/", source: sourceLeetCode},
+		{name: "leetcode problem-list upper", url: "https://leetcode.com/problem-list/Top-100-Liked/", source: sourceLeetCode},
+		{name: sourceCodeRun, url: "https://coderun.yandex.ru/problem/median", source: sourceCodeRun},
 		{name: "http", url: "http://leetcode.com/problems/two-sum", wantErr: true},
 		{name: "userinfo", url: "https://codeforces.com@127.0.0.1/problemset/problem/4/A", wantErr: true},
 		{name: "subdomain", url: "https://codeforces.com.example.org/problemset/problem/4/A", wantErr: true},
@@ -31,6 +31,8 @@ func TestNormalizeWebsiteURL(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			source, _, err := NormalizeWebsiteURL(test.url)
 			if test.wantErr && err == nil {
 				t.Fatal("expected validation error")

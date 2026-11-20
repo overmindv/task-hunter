@@ -10,6 +10,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	sourceCodeforces = "codeforces"
+	sourceLeetCode   = "leetcode"
+	sourceCodeRun    = "coderun"
+	sourceTelegram   = "telegram"
+	triggerManual    = "manual"
+	statusImported   = "imported"
+	pathProblem      = "problem"
+	enabledValue     = "true"
+)
+
 // JobStatus описывает состояние асинхронного задания.
 type JobStatus string
 
@@ -100,22 +111,22 @@ type Checkpoint struct {
 
 // Candidate представляет нормализованный payload для tasks.
 type Candidate struct {
-	ExternalID        string         `json:"external_id"`
-	SourceID          string         `json:"source_id"`
-	SourceName        string         `json:"source_name"`
-	SourceURL         string         `json:"source_url"`
-	SourceHash        string         `json:"source_hash"`
-	SourcePublishedAt *time.Time     `json:"source_published_at"`
-	RetrievedAt       time.Time      `json:"retrieved_at"`
-	CollectionJobID   uuid.UUID      `json:"collection_job_id"`
-	Title             string         `json:"title"`
-	Statement         string         `json:"statement"`
-	Difficulty        string         `json:"difficulty"`
-	Tags              []string       `json:"tags"`
-	Examples          []Example      `json:"examples"`
-	Constraints       []string       `json:"constraints"`
+	ExternalID        string          `json:"external_id"`
+	SourceID          string          `json:"source_id"`
+	SourceName        string          `json:"source_name"`
+	SourceURL         string          `json:"source_url"`
+	SourceHash        string          `json:"source_hash"`
+	SourcePublishedAt *time.Time      `json:"source_published_at"`
+	RetrievedAt       time.Time       `json:"retrieved_at"`
+	CollectionJobID   uuid.UUID       `json:"collection_job_id"`
+	Title             string          `json:"title"`
+	Statement         string          `json:"statement"`
+	Difficulty        string          `json:"difficulty"`
+	Tags              []string        `json:"tags"`
+	Examples          []Example       `json:"examples"`
+	Constraints       []string        `json:"constraints"`
 	ProblemList       *ProblemListRef `json:"problem_list,omitempty"`
-	MessageID         int64          `json:"-"`
+	MessageID         int64           `json:"-"`
 }
 
 // ProblemListRef описывает problem-list, из которого собран кандидат.
@@ -186,22 +197,22 @@ func NormalizeWebsiteURL(rawURL string) (string, string, error) {
 
 	switch host {
 	case "codeforces.com":
-		if len(parts) == 4 && parts[0] == "problemset" && parts[1] == "problem" && isDigits(parts[2]) && isProblemIndex(parts[3]) {
-			return "codeforces", fmt.Sprintf("https://codeforces.com/problemset/problem/%s/%s", parts[2], strings.ToUpper(parts[3])), nil
+		if len(parts) == 4 && parts[0] == "problemset" && parts[1] == pathProblem && isDigits(parts[2]) && isProblemIndex(parts[3]) {
+			return sourceCodeforces, fmt.Sprintf("https://codeforces.com/problemset/problem/%s/%s", parts[2], strings.ToUpper(parts[3])), nil
 		}
-		if len(parts) == 4 && parts[0] == "contest" && isDigits(parts[1]) && parts[2] == "problem" && isProblemIndex(parts[3]) {
-			return "codeforces", fmt.Sprintf("https://codeforces.com/problemset/problem/%s/%s", parts[1], strings.ToUpper(parts[3])), nil
+		if len(parts) == 4 && parts[0] == "contest" && isDigits(parts[1]) && parts[2] == pathProblem && isProblemIndex(parts[3]) {
+			return sourceCodeforces, fmt.Sprintf("https://codeforces.com/problemset/problem/%s/%s", parts[1], strings.ToUpper(parts[3])), nil
 		}
 	case "leetcode.com":
 		if len(parts) >= 2 && len(parts) <= 3 && parts[0] == "problems" && isSlug(parts[1]) && (len(parts) == 2 || parts[2] == "description") {
-			return "leetcode", "https://leetcode.com/problems/" + strings.ToLower(parts[1]), nil
+			return sourceLeetCode, "https://leetcode.com/problems/" + strings.ToLower(parts[1]), nil
 		}
 		if len(parts) == 2 && parts[0] == "problem-list" && isSlug(parts[1]) {
-			return "leetcode", "https://leetcode.com/problem-list/" + strings.ToLower(parts[1]), nil
+			return sourceLeetCode, "https://leetcode.com/problem-list/" + strings.ToLower(parts[1]), nil
 		}
 	case "coderun.yandex.ru":
-		if len(parts) == 2 && parts[0] == "problem" && isSlug(parts[1]) {
-			return "coderun", "https://coderun.yandex.ru/problem/" + strings.ToLower(parts[1]), nil
+		if len(parts) == 2 && parts[0] == pathProblem && isSlug(parts[1]) {
+			return sourceCodeRun, "https://coderun.yandex.ru/problem/" + strings.ToLower(parts[1]), nil
 		}
 	}
 

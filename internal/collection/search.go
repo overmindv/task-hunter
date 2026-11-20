@@ -101,6 +101,7 @@ func (s *taskSearch) search(ctx context.Context, query string) ([]searchResult, 
 		for _, word := range words {
 			if !strings.Contains(text, word) {
 				matched = false
+
 				break
 			}
 		}
@@ -117,11 +118,13 @@ func (s *taskSearch) search(ctx context.Context, query string) ([]searchResult, 
 		if result[i].Rating != result[j].Rating {
 			return result[i].Rating < result[j].Rating
 		}
+
 		return result[i].URL < result[j].URL
 	})
 	if len(result) > 20 {
 		result = result[:20]
 	}
+
 	return result, nil
 }
 
@@ -130,11 +133,13 @@ func (s *taskSearch) serve(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" || !utf8.ValidString(q) || utf8.RuneCountInString(q) > 100 {
 		writeError(w, 400, "INVALID_INPUT", "Invalid query")
+
 		return
 	}
 	result, err := s.search(r.Context(), q)
 	if err != nil {
 		writeError(w, 503, "SERVICE_UNAVAILABLE", "Search unavailable")
+
 		return
 	}
 	writeJSON(w, 200, result)

@@ -15,6 +15,8 @@ type searchTransport func(*http.Request) (*http.Response, error)
 
 func (f searchTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func TestTaskSearchCachesAndFilters(t *testing.T) {
+	t.Parallel()
+
 	calls := 0
 	s := newTaskSearch()
 	s.client.Transport = searchTransport(func(r *http.Request) (*http.Response, error) {
@@ -22,6 +24,7 @@ func TestTaskSearchCachesAndFilters(t *testing.T) {
 		if r.URL.String() != "https://codeforces.com/api/problemset.problems" {
 			t.Fatal("unexpected host")
 		}
+
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"status":"OK","result":{"problems":[{"contestId":1,"index":"A","name":"Graph","rating":800,"tags":["graphs"]},{"contestId":2,"index":"../x","name":"Graph","tags":["graphs"]}]}}`))}, nil
 	})
 	for i := 0; i < 2; i++ {
@@ -39,10 +42,13 @@ func TestTaskSearchCachesAndFilters(t *testing.T) {
 	}
 }
 func TestTaskSearchFailureCooldownAndInput(t *testing.T) {
+	t.Parallel()
+
 	s := newTaskSearch()
 	calls := 0
 	s.client.Transport = searchTransport(func(*http.Request) (*http.Response, error) {
 		calls++
+
 		return &http.Response{StatusCode: 429, Body: io.NopCloser(strings.NewReader("private upstream details"))}, nil
 	})
 	for i := 0; i < 2; i++ {
@@ -60,6 +66,8 @@ func TestTaskSearchFailureCooldownAndInput(t *testing.T) {
 	}
 }
 func TestTaskSearchRejectsUnauthenticated(t *testing.T) {
+	t.Parallel()
+
 	mux := http.NewServeMux()
 	Register(mux, nil, nil, "token", nil, 1, "")
 	w := httptest.NewRecorder()
@@ -70,7 +78,9 @@ func TestTaskSearchRejectsUnauthenticated(t *testing.T) {
 }
 
 func TestLiveTaskSearch(t *testing.T) {
-	if os.Getenv("TASK_SEARCH_LIVE_TEST") != "true" {
+	t.Parallel()
+
+	if os.Getenv("TASK_SEARCH_LIVE_TEST") != enabledValue {
 		t.Skip("manual public catalog smoke")
 	}
 	out, err := newTaskSearch().search(context.Background(), "graphs")
