@@ -11,6 +11,8 @@ import (
 
 // TestWorkerNormalizeClassifiesDifficulty проверяет допустимую сложность для tasks.
 func TestWorkerNormalizeClassifiesDifficulty(t *testing.T) {
+	t.Parallel()
+
 	worker := NewWorker(nil, nil, nil, nil, "test", time.Second, time.Minute)
 	raw := domain.RawTask{
 		Source: domain.Source{
@@ -24,7 +26,7 @@ func TestWorkerNormalizeClassifiesDifficulty(t *testing.T) {
 		Title:       "Two Sum",
 		Statement:   "Find two numbers in the array.",
 	}
-	candidate, err := worker.normalize(context.Background(), uuid.New(), "leetcode", raw.SourceURL, raw, nil, 0)
+	candidate, err := worker.normalize(context.Background(), uuid.New(), sourceLeetCode, raw.SourceURL, raw, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,6 +49,8 @@ func (s *stubWebsiteReader) Close() {}
 // TestCollectWebsiteProblemList проверяет разворачивание problem-list в кандидатов:
 // каждый кандидат получает свой SourceURL и ссылку на список, лимит ограничивает охват.
 func TestCollectWebsiteProblemList(t *testing.T) {
+	t.Parallel()
+
 	worker := NewWorker(nil, nil, &stubWebsiteReader{
 		batch: WebsiteBatch{
 			RawTasks: []domain.RawTask{
@@ -56,7 +60,7 @@ func TestCollectWebsiteProblemList(t *testing.T) {
 			},
 			ProblemList: &ProblemListRef{
 				Name:      "oy4y273c",
-				SourceID:  "leetcode",
+				SourceID:  sourceLeetCode,
 				SourceURL: "https://leetcode.com/problem-list/oy4y273c",
 			},
 		},

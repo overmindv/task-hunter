@@ -57,14 +57,14 @@ func (r *DirectWebsiteReader) WithCodeforcesReaderURL(rawURL string) *DirectWebs
 // элемент, problem-list — все задачи списка и ссылку на сам список.
 func (r *DirectWebsiteReader) ReadURL(ctx context.Context, sourceID, rawURL string) (WebsiteBatch, error) {
 	switch sourceID {
-	case "codeforces":
+	case sourceCodeforces:
 		raw, err := r.codeforces.CollectURL(ctx, rawURL)
 		if err != nil {
 			return WebsiteBatch{}, err
 		}
 
 		return WebsiteBatch{RawTasks: []domain.RawTask{raw}}, nil
-	case "leetcode":
+	case sourceLeetCode:
 		if isLeetCodeProblemListURL(rawURL) {
 			tasks, err := r.leetcode.CollectProblemListURL(ctx, rawURL)
 			if err != nil {
@@ -86,7 +86,7 @@ func (r *DirectWebsiteReader) ReadURL(ctx context.Context, sourceID, rawURL stri
 		}
 
 		return WebsiteBatch{RawTasks: []domain.RawTask{raw}}, nil
-	case "coderun":
+	case sourceCodeRun:
 		raw, err := r.coderun.CollectURL(ctx, rawURL)
 		if err != nil {
 			return WebsiteBatch{}, err
