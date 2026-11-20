@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const unknownValue = "unknown"
+
 // TaskType — тип задачи по тематике.
 type TaskType int
 
@@ -45,7 +47,7 @@ func (t TaskType) String() string {
 	case TaskTypeCodeReview:
 		return "code_review"
 	default:
-		return "unknown"
+		return unknownValue
 	}
 }
 
@@ -73,7 +75,7 @@ func (d Difficulty) String() string {
 	case DifficultyHard:
 		return "hard"
 	default:
-		return "unknown"
+		return unknownValue
 	}
 }
 
@@ -103,7 +105,7 @@ func (s SourceType) String() string {
 	case SourceTypeManual:
 		return "manual"
 	default:
-		return "unknown"
+		return unknownValue
 	}
 }
 
@@ -194,6 +196,7 @@ func (t *Task) Validate() error {
 	if t.Source.ID == "" {
 		return fmt.Errorf("source_id is required")
 	}
+
 	return nil
 }
 
@@ -205,6 +208,7 @@ func (t *Task) Validate() error {
 func GenerateSourceHash(sourceID SourceID, sourceURL string, content []byte) string {
 	data := fmt.Sprintf("%s|%s|%s", sourceID, sourceURL, string(content))
 	hash := sha256.Sum256([]byte(data))
+
 	return fmt.Sprintf("%x", hash[:16]) // первые 16 байт — достаточная уникальность
 }
 

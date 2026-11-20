@@ -57,5 +57,6 @@ func MustOpenDB(dbURL string) *sql.DB {
 	if err != nil {
 		panic(fmt.Errorf("open db: %w", err))
 	}
+
 	return db
 }

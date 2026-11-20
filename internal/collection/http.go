@@ -95,7 +95,7 @@ func (h *HTTPHandler) requireAdmin(next http.Handler) http.Handler {
 func (h *HTTPHandler) sources(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"telegram_channels": h.allowedChannels,
-		"website_sources":   []string{"codeforces", "leetcode", "coderun"},
+		"website_sources":   []string{sourceCodeforces, sourceLeetCode, sourceCodeRun},
 	})
 }
 
@@ -139,7 +139,7 @@ func (h *HTTPHandler) listJobs(w http.ResponseWriter, r *http.Request) {
 	actorID, _ := uuid.Parse(r.Header.Get("X-User-ID"))
 	limit := parseBoundedInt(r.URL.Query().Get("limit"), 20, 1, 100)
 	offset := parseBoundedInt(r.URL.Query().Get("offset"), 0, 0, 100000)
-	unread := r.URL.Query().Get("unread") == "true"
+	unread := r.URL.Query().Get("unread") == enabledValue
 
 	items, err := h.store.List(r.Context(), actorID, unread, limit, offset)
 	if err != nil {

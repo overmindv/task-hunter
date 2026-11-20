@@ -17,6 +17,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+const httpsScheme = "https"
+
 const defaultCodeforcesReaderURL = "https://r.jina.ai/http://codeforces.com"
 
 // Config — корневая конфигурация модуля парсинга.
@@ -177,7 +179,7 @@ func (c *Config) ValidateRuntime() error {
 		return fmt.Errorf("PARSER_TASKS_URL and PARSER_TASKS_TOKEN are required")
 	}
 	parsedTasksURL, err := url.Parse(c.Tasks.URL)
-	if err != nil || parsedTasksURL.Host == "" || (parsedTasksURL.Scheme != "http" && parsedTasksURL.Scheme != "https") {
+	if err != nil || parsedTasksURL.Host == "" || (parsedTasksURL.Scheme != "http" && parsedTasksURL.Scheme != httpsScheme) {
 		return fmt.Errorf("PARSER_TASKS_URL must be an absolute HTTP(S) URL")
 	}
 	if c.Tasks.Timeout <= 0 || c.Tasks.MaxRetries < 0 || c.Tasks.MaxRetries > 10 {

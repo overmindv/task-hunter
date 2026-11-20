@@ -123,6 +123,7 @@ func extractConstraints(text string) []string {
 				constraints = append(constraints, line)
 			}
 		}
+
 		return constraints
 	}
 

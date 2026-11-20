@@ -44,8 +44,8 @@ func (r *PostgresRepository) Save(ctx context.Context, task domain.Task) error {
 		SourceID:    string(task.Source.ID),
 		SourceURL:   task.SourceURL,
 		SourceHash:  task.SourceHash,
-		Type:        int32(task.Type),
-		Difficulty:  int32(task.Difficulty),
+		Type:        int32(task.Type),       //nolint:gosec // domain enum ограничен известными значениями
+		Difficulty:  int32(task.Difficulty), //nolint:gosec // domain enum ограничен известными значениями
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -214,6 +214,7 @@ func (r *PostgresRepository) Count(ctx context.Context, filter Filter) (int, err
 	if len(dest) == 0 {
 		return 0, nil
 	}
+
 	return int(dest[0].Count), nil
 }
 
@@ -238,6 +239,7 @@ func (r *PostgresRepository) loadExamples(ctx context.Context, taskID uuid.UUID)
 			Explanation: fromNullableString(m.Explanation),
 		}
 	}
+
 	return examples
 }
 
@@ -256,6 +258,7 @@ func (r *PostgresRepository) loadTags(ctx context.Context, taskID uuid.UUID) []d
 	for i, m := range dest {
 		tags[i] = domain.Tag(m.Tag)
 	}
+
 	return tags
 }
 
@@ -283,11 +286,11 @@ func buildConditions(filter Filter) []postgres.BoolExpression {
 
 	if filter.Type != nil {
 		conditions = append(conditions,
-			table.Tasks.Type.EQ(postgres.Int32(int32(*filter.Type))))
+			table.Tasks.Type.EQ(postgres.Int32(int32(*filter.Type)))) //nolint:gosec // domain enum ограничен известными значениями
 	}
 	if filter.Difficulty != nil {
 		conditions = append(conditions,
-			table.Tasks.Difficulty.EQ(postgres.Int32(int32(*filter.Difficulty))))
+			table.Tasks.Difficulty.EQ(postgres.Int32(int32(*filter.Difficulty)))) //nolint:gosec // domain enum ограничен известными значениями
 	}
 	if filter.SourceID != nil {
 		conditions = append(conditions,
@@ -302,6 +305,7 @@ func nullableString(s string) *string {
 	if s == "" {
 		return nil
 	}
+
 	return &s
 }
 
@@ -310,6 +314,7 @@ func fromNullableString(s *string) string {
 	if s == nil {
 		return ""
 	}
+
 	return *s
 }
 

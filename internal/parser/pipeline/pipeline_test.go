@@ -17,26 +17,32 @@ import (
 // update flag для перезаписи golden-файлов: go test -update
 var update = flag.Bool("update", false, "update golden files")
 
+const firstTitle = "first"
+
 // --- Pipeline orchestration tests ---
 
 func TestPipeline_RunSequential(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	p := NewPipeline()
 
 	var order []string
 
-	p.AddProcessor("first", ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		order = append(order, "first")
-		task.Title = "first"
+	p.AddProcessor(firstTitle, ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
+		order = append(order, firstTitle)
+		task.Title = firstTitle
+
 		return nil
 	}))
 
 	p.AddProcessor("second", ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		if task.Title != "first" {
+		if task.Title != firstTitle {
 			t.Errorf("expected title 'first' from previous stage, got %q", task.Title)
 		}
 		order = append(order, "second")
 		task.Description = "second"
+
 		return nil
 	}))
 
@@ -55,6 +61,8 @@ func TestPipeline_RunSequential(t *testing.T) {
 }
 
 func TestPipeline_ErrorStopsChain(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	p := NewPipeline()
 
@@ -62,6 +70,7 @@ func TestPipeline_ErrorStopsChain(t *testing.T) {
 
 	p.AddProcessor("ok", ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
 		task.Title = "ok"
+
 		return nil
 	}))
 
@@ -71,6 +80,7 @@ func TestPipeline_ErrorStopsChain(t *testing.T) {
 
 	p.AddProcessor("never_called", ProcessorFunc(func(_ context.Context, _ domain.RawTask, _ *domain.Task) error {
 		calledAfterError = true
+
 		return nil
 	}))
 
@@ -90,6 +100,8 @@ func TestPipeline_ErrorStopsChain(t *testing.T) {
 }
 
 func TestPipeline_EmptyPipeline(t *testing.T) {
+	t.Parallel()
+
 	_, err := NewPipeline().Run(context.Background(), testRawTask())
 	if err == nil {
 		t.Fatal("expected error for empty pipeline")
@@ -97,6 +109,8 @@ func TestPipeline_EmptyPipeline(t *testing.T) {
 }
 
 func TestNewDefaultPipeline(t *testing.T) {
+	t.Parallel()
+
 	p := NewDefaultPipeline()
 	result, err := p.Run(context.Background(), testRawTask())
 	if err != nil {
@@ -113,6 +127,8 @@ func TestNewDefaultPipeline(t *testing.T) {
 // --- Extractor tests ---
 
 func TestExtractor_CodeforcesHTML(t *testing.T) {
+	t.Parallel()
+
 	extractor := NewExtractor()
 	raw := loadRawTask(t, "extractor_codeforces.html", domain.SourceCodeforces, domain.SourceTypeWebsite)
 
@@ -140,6 +156,8 @@ func TestExtractor_CodeforcesHTML(t *testing.T) {
 }
 
 func TestExtractor_LeetCodeHTML(t *testing.T) {
+	t.Parallel()
+
 	extractor := NewExtractor()
 	raw := loadRawTask(t, "extractor_leetcode.html", domain.SourceLeetCode, domain.SourceTypeWebsite)
 
@@ -164,6 +182,8 @@ func TestExtractor_LeetCodeHTML(t *testing.T) {
 
 // TestExtractor_CodeRunCurrentLayout проверяет стабильную область новой SPA-разметки.
 func TestExtractor_CodeRunCurrentLayout(t *testing.T) {
+	t.Parallel()
+
 	extractor := NewExtractor()
 	raw := domain.RawTask{
 		Source: domain.Source{
@@ -188,6 +208,8 @@ func TestExtractor_CodeRunCurrentLayout(t *testing.T) {
 }
 
 func TestExtractor_JSON(t *testing.T) {
+	t.Parallel()
+
 	extractor := NewExtractor()
 	raw := loadRawTask(t, "extractor_api.json", domain.SourceCodeforces, domain.SourceTypeAPI)
 
@@ -206,6 +228,8 @@ func TestExtractor_JSON(t *testing.T) {
 }
 
 func TestExtractor_EmptyContent(t *testing.T) {
+	t.Parallel()
+
 	extractor := NewExtractor()
 	raw := domain.RawTask{
 		Source:      domain.Source{ID: domain.SourceManual, Name: "Manual", Type: domain.SourceTypeManual},
@@ -225,6 +249,8 @@ func TestExtractor_EmptyContent(t *testing.T) {
 }
 
 func TestExtractor_PlainText(t *testing.T) {
+	t.Parallel()
+
 	extractor := NewExtractor()
 	raw := domain.RawTask{
 		Source:      domain.Source{ID: domain.SourceTelegramAlgorithms, Name: "Algo Channel", Type: domain.SourceTypeTelegram},
@@ -249,6 +275,8 @@ func TestExtractor_PlainText(t *testing.T) {
 // --- Parser tests ---
 
 func TestParser_FullText(t *testing.T) {
+	t.Parallel()
+
 	parser := NewParser()
 	task := &domain.Task{Description: readTestFile(t, "parser_full.txt")}
 
@@ -275,6 +303,8 @@ func TestParser_FullText(t *testing.T) {
 }
 
 func TestParser_OnlyDescription(t *testing.T) {
+	t.Parallel()
+
 	parser := NewParser()
 	task := &domain.Task{Description: readTestFile(t, "parser_only_description.txt")}
 
@@ -288,6 +318,8 @@ func TestParser_OnlyDescription(t *testing.T) {
 }
 
 func TestParser_EmptyText(t *testing.T) {
+	t.Parallel()
+
 	parser := NewParser()
 	task := &domain.Task{Description: ""}
 
@@ -298,6 +330,8 @@ func TestParser_EmptyText(t *testing.T) {
 }
 
 func TestParser_SimpleText(t *testing.T) {
+	t.Parallel()
+
 	parser := NewParser()
 	task := &domain.Task{Description: readTestFile(t, "parser_simple.txt")}
 
@@ -322,6 +356,8 @@ func TestParser_SimpleText(t *testing.T) {
 // --- Normalizer tests ---
 
 func TestNormalizer_Russian(t *testing.T) {
+	t.Parallel()
+
 	normalizer := NewNormalizer()
 	desc := readTestFile(t, "normalizer_russian.txt")
 
@@ -343,6 +379,8 @@ func TestNormalizer_Russian(t *testing.T) {
 }
 
 func TestNormalizer_RussianGolden(t *testing.T) {
+	t.Parallel()
+
 	normalizer := NewNormalizer()
 	desc := readTestFile(t, "normalizer_russian.txt")
 
@@ -366,6 +404,8 @@ func TestNormalizer_RussianGolden(t *testing.T) {
 }
 
 func TestNormalizer_TagsSorting(t *testing.T) {
+	t.Parallel()
+
 	normalizer := NewNormalizer()
 	task := &domain.Task{
 		Tags: []domain.Tag{"hash-table", "array", "two-pointers", "Array"},
@@ -386,6 +426,8 @@ func TestNormalizer_TagsSorting(t *testing.T) {
 }
 
 func TestNormalizer_TagsDeduplication(t *testing.T) {
+	t.Parallel()
+
 	normalizer := NewNormalizer()
 	task := &domain.Task{
 		Tags: []domain.Tag{"array", "array", "hash-table", "array"},
@@ -402,6 +444,8 @@ func TestNormalizer_TagsDeduplication(t *testing.T) {
 }
 
 func TestNormalizer_EmptyExamplesRemoval(t *testing.T) {
+	t.Parallel()
+
 	normalizer := NewNormalizer()
 	task := &domain.Task{
 		Examples: []domain.Example{
@@ -424,6 +468,8 @@ func TestNormalizer_EmptyExamplesRemoval(t *testing.T) {
 // --- Validator tests ---
 
 func TestValidator_Valid(t *testing.T) {
+	t.Parallel()
+
 	validator := NewValidator()
 	task := validTestTask()
 
@@ -434,6 +480,8 @@ func TestValidator_Valid(t *testing.T) {
 }
 
 func TestValidator_EmptyDescription(t *testing.T) {
+	t.Parallel()
+
 	validator := NewValidator()
 	task := validTestTask()
 	task.Description = ""
@@ -445,6 +493,8 @@ func TestValidator_EmptyDescription(t *testing.T) {
 }
 
 func TestValidator_EmptySourceURL(t *testing.T) {
+	t.Parallel()
+
 	validator := NewValidator()
 	task := validTestTask()
 	task.SourceURL = ""
@@ -456,6 +506,8 @@ func TestValidator_EmptySourceURL(t *testing.T) {
 }
 
 func TestValidator_UnknownSourceID(t *testing.T) {
+	t.Parallel()
+
 	validator := NewValidator()
 	task := validTestTask()
 	task.Source = domain.Source{ID: "unknown_source"}
@@ -467,6 +519,8 @@ func TestValidator_UnknownSourceID(t *testing.T) {
 }
 
 func TestValidator_AutoHash(t *testing.T) {
+	t.Parallel()
+
 	validator := NewValidator()
 	task := validTestTask()
 	task.SourceHash = ""
@@ -481,6 +535,8 @@ func TestValidator_AutoHash(t *testing.T) {
 }
 
 func TestValidator_TitleTooLong(t *testing.T) {
+	t.Parallel()
+
 	validator := NewValidator()
 	task := validTestTask()
 	task.Title = string(make([]byte, MaxTitleLength+1))
@@ -510,6 +566,8 @@ func validTestTask() *domain.Task {
 // --- Integration test ---
 
 func TestExtractorAndParserInPipeline(t *testing.T) {
+	t.Parallel()
+
 	p := NewPipeline()
 	p.AddProcessor("extractor", NewExtractor())
 	p.AddProcessor("parser", NewParser())
@@ -546,6 +604,7 @@ func testRawTask() domain.RawTask {
 func loadRawTask(t *testing.T, filename string, sourceID domain.SourceID, sourceType domain.SourceType) domain.RawTask {
 	t.Helper()
 	content := readTestFile(t, filename)
+
 	return domain.RawTask{
 		Source: domain.Source{
 			ID:   sourceID,
@@ -560,26 +619,28 @@ func loadRawTask(t *testing.T, filename string, sourceID domain.SourceID, source
 
 func readTestFile(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read testdata/%s: %v", name, err)
 	}
+
 	return string(data)
 }
 
 func writeGolden(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // golden-файл не содержит секретов
 		t.Fatalf("write golden %s: %v", path, err)
 	}
 }
 
 func readGolden(t *testing.T, path string) string {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", path, err)
 	}
+
 	return string(data)
 }
 
@@ -600,6 +661,7 @@ func formatTaskSummary(task *domain.Task) string {
 	for _, tag := range task.Tags {
 		fmt.Fprintf(&b, "  Tag: %s\n", string(tag))
 	}
+
 	return b.String()
 }
 
@@ -607,5 +669,6 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
+
 	return s[:n] + "..."
 }

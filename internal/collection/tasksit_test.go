@@ -31,7 +31,7 @@ func TestTasksClientRetriesTemporaryFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if attempts != 2 || len(results) != 1 || results[0].Status != "imported" {
+	if attempts != 2 || len(results) != 1 || results[0].Status != statusImported {
 		t.Fatalf("unexpected retry result: attempts=%d results=%+v", attempts, results)
 	}
 }

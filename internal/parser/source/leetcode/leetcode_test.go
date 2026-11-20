@@ -29,7 +29,6 @@ type mockHTTPClient struct {
 type mockResponse struct {
 	statusCode int
 	body       string
-	headers    map[string]string
 }
 
 func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
@@ -60,6 +59,8 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 // TestNewCollector проверяет создание коллектора.
 func TestNewCollector(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceLeetCode, http.DefaultClient)
 	if c.ID() != domain.SourceLeetCode {
 		t.Errorf("expected %s, got %s", domain.SourceLeetCode, c.ID())
@@ -68,6 +69,8 @@ func TestNewCollector(t *testing.T) {
 
 // TestSourceImplements проверяет, что Collector реализует source.Collector.
 func TestSourceImplements(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceLeetCode, http.DefaultClient)
 	if err := c.Connect(context.Background()); err != nil {
 		t.Errorf("Connect: %v", err)
@@ -79,6 +82,8 @@ func TestSourceImplements(t *testing.T) {
 
 // TestMapDifficulty проверяет преобразование сложности LeetCode в Difficulty.
 func TestMapDifficulty(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		lc   string
 		want domain.Difficulty
@@ -94,6 +99,8 @@ func TestMapDifficulty(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.lc, func(t *testing.T) {
+			t.Parallel()
+
 			got := MapDifficulty(tc.lc)
 			if got != tc.want {
 				t.Errorf("MapDifficulty(%q) = %v, want %v", tc.lc, got, tc.want)
@@ -104,6 +111,8 @@ func TestMapDifficulty(t *testing.T) {
 
 // TestDetectBlockingPage проверяет детекцию страниц блокировки.
 func TestDetectBlockingPage(t *testing.T) {
+	t.Parallel()
+
 	if !DetectBlockingPage("<html>captcha</html>") {
 		t.Error("expected true for captcha page")
 	}
@@ -123,6 +132,8 @@ func TestDetectBlockingPage(t *testing.T) {
 
 // TestFetchProblemset проверяет парсинг списка задач через GraphQL (golden-тест).
 func TestFetchProblemset(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://leetcode.com/graphql": {
@@ -154,6 +165,8 @@ func TestFetchProblemset(t *testing.T) {
 
 // TestFetchQuestionDetail проверяет парсинг деталей задачи (golden-тест).
 func TestFetchQuestionDetail(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://leetcode.com/graphql": {
@@ -185,12 +198,14 @@ func TestFetchQuestionDetail(t *testing.T) {
 
 // TestProblemToRawTaskKeepsStructuredFields проверяет данные реальной структуры Two Sum.
 func TestProblemToRawTaskKeepsStructuredFields(t *testing.T) {
+	t.Parallel()
+
 	var response gqlQuestionResponse
 	if err := json.Unmarshal([]byte(readFixture(t, "problem_two_sum.json")), &response); err != nil {
 		t.Fatalf("decode fixture: %v", err)
 	}
 	raw := NewCollector(domain.SourceLeetCode, &mockHTTPClient{}).problemToRawTask(response.Data.Question)
-	if raw.Title != "Two Sum" || raw.Difficulty != domain.DifficultyEasy {
+	if raw.Title != twoSumTitle || raw.Difficulty != domain.DifficultyEasy {
 		t.Fatalf("unexpected metadata: title=%q difficulty=%v", raw.Title, raw.Difficulty)
 	}
 	if len(raw.Examples) != 3 || raw.Examples[0].Output != "[0,1]" {
@@ -203,6 +218,8 @@ func TestProblemToRawTaskKeepsStructuredFields(t *testing.T) {
 
 // TestCollect_WithProblemset проверяет полный сбор с problemset и деталями.
 func TestCollect_WithProblemset(t *testing.T) {
+	t.Parallel()
+
 	// Создадим кастомный обработчик через переопределение Do
 	type customHandler struct {
 		responses []mockResponse
@@ -224,6 +241,7 @@ func TestCollect_WithProblemset(t *testing.T) {
 			}
 			resp := handler.responses[handler.index]
 			handler.index++
+
 			return &http.Response{
 				StatusCode: resp.statusCode,
 				Body:       io.NopCloser(strings.NewReader(resp.body)),
@@ -255,6 +273,8 @@ func TestCollect_WithProblemset(t *testing.T) {
 
 // TestCollect_NoContent проверяет задачу без условия (content пустой).
 func TestCollect_NoContent(t *testing.T) {
+	t.Parallel()
+
 	// Используем кастомный клиент для чередования ответов
 	custom := &callTrackingClient{
 		fn: func(req *http.Request) (*http.Response, error) {
@@ -292,6 +312,8 @@ func TestCollect_NoContent(t *testing.T) {
 
 // TestCollect_Deduplication проверяет, что повторный вызов не создаёт дубликатов.
 func TestCollect_Deduplication(t *testing.T) {
+	t.Parallel()
+
 	callCount := 0
 	custom := &callTrackingClient{
 		fn: func(req *http.Request) (*http.Response, error) {
@@ -346,6 +368,7 @@ func TestCollect_Deduplication(t *testing.T) {
 	callCount = 0 // сбрасываем, так как при втором вызове не нужны детали
 	custom.fn = func(req *http.Request) (*http.Response, error) {
 		callCount++
+
 		return &http.Response{
 			StatusCode: 200,
 			Body: io.NopCloser(strings.NewReader(`{
@@ -372,6 +395,8 @@ func TestCollect_Deduplication(t *testing.T) {
 
 // TestCollect_Forbidden проверяет обработку 403 (капча/блокировка).
 func TestCollect_Forbidden(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{blockAll: true}
 
 	c := NewCollector(domain.SourceLeetCode, mock)
@@ -388,6 +413,8 @@ func TestCollect_Forbidden(t *testing.T) {
 
 // TestFetchFavoriteList проверяет парсинг problem-list через GraphQL.
 func TestFetchFavoriteList(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://leetcode.com/graphql": {
@@ -413,12 +440,14 @@ func TestFetchFavoriteList(t *testing.T) {
 
 // TestCollectProblemListURL проверяет сбор всех задач problem-list с деталями.
 func TestCollectProblemListURL(t *testing.T) {
+	t.Parallel()
+
 	type response struct {
 		body string
 	}
 	responses := []response{
-		{body: readFixture(t, "problem_list.json")},          // favorite list
-		{body: readFixture(t, "problem_two_sum.json")},       // two-sum
+		{body: readFixture(t, "problem_list.json")},            // favorite list
+		{body: readFixture(t, "problem_two_sum.json")},         // two-sum
 		{body: readFixture(t, "problem_add_two_numbers.json")}, // add-two-numbers
 	}
 	index := 0
@@ -429,6 +458,7 @@ func TestCollectProblemListURL(t *testing.T) {
 			}
 			body := responses[index].body
 			index++
+
 			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 		},
 	}
@@ -443,7 +473,7 @@ func TestCollectProblemListURL(t *testing.T) {
 	if len(tasks) != 2 {
 		t.Fatalf("expected 2 tasks, got %d", len(tasks))
 	}
-	if tasks[0].Title != "Two Sum" || tasks[0].Difficulty != domain.DifficultyEasy {
+	if tasks[0].Title != twoSumTitle || tasks[0].Difficulty != domain.DifficultyEasy {
 		t.Fatalf("unexpected first task: %#v", tasks[0])
 	}
 	if tasks[0].Source.ID != domain.SourceLeetCode {
@@ -456,6 +486,8 @@ func TestCollectProblemListURL(t *testing.T) {
 
 // TestCollectProblemListURLRejectsInvalidURL проверяет валидацию ссылки списка.
 func TestCollectProblemListURLRejectsInvalidURL(t *testing.T) {
+	t.Parallel()
+
 	c := NewCollector(domain.SourceLeetCode, &callTrackingClient{})
 	for _, rawURL := range []string{
 		"https://leetcode.com/problems/two-sum",
@@ -471,6 +503,8 @@ func TestCollectProblemListURLRejectsInvalidURL(t *testing.T) {
 
 // TestRateLimiter проверяет, что rate limiter не пропускает слишком частые запросы.
 func TestRateLimiter(t *testing.T) {
+	t.Parallel()
+
 	mock := &mockHTTPClient{}
 	mock.responses = map[string]mockResponse{
 		"https://leetcode.com/graphql": {
@@ -505,26 +539,28 @@ func (c *callTrackingClient) Do(req *http.Request) (*http.Response, error) {
 
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)
 	}
+
 	return string(data)
 }
 
 func writeGolden(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // golden-файл не содержит секретов
 		t.Fatalf("write golden %s: %v", path, err)
 	}
 }
 
 func readGolden(t *testing.T, path string) string {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", path, err)
 	}
+
 	return string(data)
 }
 
@@ -538,8 +574,9 @@ func formatProblemset(problems []lcProblemBrief) string {
 		for j, t := range p.TopicTags {
 			tags[j] = t.Name
 		}
-		b.WriteString(fmt.Sprintf("%d. %s [%s] (%s)", i+1, p.Title, p.Difficulty, strings.Join(tags, ", ")))
+		fmt.Fprintf(&b, "%d. %s [%s] (%s)", i+1, p.Title, p.Difficulty, strings.Join(tags, ", "))
 	}
+
 	return b.String()
 }
 
@@ -567,6 +604,7 @@ func formatQuestionDetail(q *lcQuestionDetail) string {
 		Tags:    tags,
 	}
 	data, _ := json.MarshalIndent(p, "", "  ")
+
 	return string(data)
 }
 
@@ -575,5 +613,6 @@ func truncate(s string, maxLen int) string {
 	if len(runes) <= maxLen {
 		return s
 	}
+
 	return string(runes[:maxLen]) + "..."
 }

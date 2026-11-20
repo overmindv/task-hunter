@@ -34,8 +34,8 @@ func Build(app *parker.App) error {
 	if err != nil {
 		return fmt.Errorf("load task-hunter config: %w", err)
 	}
-	if err := cfg.ValidateRuntime(); err != nil {
-		return fmt.Errorf("validate task-hunter runtime config: %w", err)
+	if validateErr := cfg.ValidateRuntime(); validateErr != nil {
+		return fmt.Errorf("validate task-hunter runtime config: %w", validateErr)
 	}
 
 	pool, err := app.Postgres()

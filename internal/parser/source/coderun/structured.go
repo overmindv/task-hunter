@@ -162,7 +162,7 @@ func (c *Collector) fetchExamples(ctx context.Context, problem embeddedProblem) 
 // fetchResource читает только HTTPS-файлы из доверенного хранилища CodeRun.
 func (c *Collector) fetchResource(ctx context.Context, rawURL string) ([]byte, error) {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || !isTrustedResourceHost(parsed.Hostname()) {
+	if err != nil || parsed.Scheme != httpsScheme || !isTrustedResourceHost(parsed.Hostname()) {
 		return nil, fmt.Errorf("untrusted resource URL")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)

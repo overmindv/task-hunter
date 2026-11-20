@@ -61,6 +61,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	if strings.TrimSpace(text) == "" {
 		task.Type = domain.TaskTypeAlgorithm
 		setFallbackDifficulty(task, domain.DifficultyMedium)
+
 		return nil
 	}
 
@@ -82,6 +83,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 	if len(matches) == 0 {
 		task.Type = domain.TaskTypeAlgorithm
 		setFallbackDifficulty(task, c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags))
+
 		return nil
 	}
 
@@ -96,6 +98,7 @@ func (c *RuleBasedClassifier) Classify(_ context.Context, task *domain.Task) err
 
 	task.Type = best.typ
 	setFallbackDifficulty(task, c.diffAnalyzer.Analyze(task.Title, task.Description, task.Tags))
+
 	return nil
 }
 
@@ -114,6 +117,7 @@ func countKeywordMatches(text string, keywords []string) int {
 			count++
 		}
 	}
+
 	return count
 }
 

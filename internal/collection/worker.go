@@ -127,7 +127,7 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 	var candidates []Candidate
 	var err error
 	switch source.Kind {
-	case "telegram":
+	case sourceTelegram:
 		candidates, err = w.collectTelegram(ctx, job, source)
 	case "website":
 		candidates, err = w.collectWebsite(ctx, job, source)
@@ -154,7 +154,7 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 
 		return result
 	}
-	if source.Kind == "telegram" && job.Trigger != "manual" && len(successful) > 0 {
+	if source.Kind == sourceTelegram && job.Trigger != triggerManual && len(successful) > 0 {
 		last := successful[0]
 		for _, candidate := range successful[1:] {
 			if candidate.MessageID > last.MessageID {
@@ -182,7 +182,7 @@ func (w *Worker) collectTelegram(ctx context.Context, job Job, source JobSource)
 	}
 	afterID := int64(0)
 	publishedFrom := *job.PublishedFrom
-	if job.Trigger != "manual" {
+	if job.Trigger != triggerManual {
 		checkpoint, err := w.store.GetCheckpoint(ctx, source.SourceID)
 		if err != nil {
 			return nil, err
@@ -285,7 +285,7 @@ func (w *Worker) importCandidates(ctx context.Context, candidates []Candidate) (
 			}
 			seen[result.ExternalID] = struct{}{}
 			switch result.Status {
-			case "imported":
+			case statusImported:
 				imported++
 				successful = append(successful, candidate)
 			case "duplicate":

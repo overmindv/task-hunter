@@ -35,7 +35,7 @@ func (s *Store) Ping(ctx context.Context) error {
 func (s *Store) CreateManual(ctx context.Context, actorID uuid.UUID, input CreateInput) (Job, error) {
 	job := Job{
 		ID:                uuid.New(),
-		Trigger:           "manual",
+		Trigger:           triggerManual,
 		RequestedBy:       &actorID,
 		IdempotencyKey:    input.IdempotencyKey,
 		PublishedFrom:     input.PublishedFrom,
@@ -49,7 +49,7 @@ func (s *Store) CreateManual(ctx context.Context, actorID uuid.UUID, input Creat
 		sources = append(sources, JobSource{
 			ID:       uuid.New(),
 			JobID:    job.ID,
-			Kind:     "telegram",
+			Kind:     sourceTelegram,
 			SourceID: channel,
 			Status:   SourceQueued,
 		})
@@ -103,7 +103,7 @@ func (s *Store) CreateScheduled(ctx context.Context, trigger string, key uuid.UU
 		sources = append(sources, JobSource{
 			ID:       uuid.New(),
 			JobID:    job.ID,
-			Kind:     "telegram",
+			Kind:     sourceTelegram,
 			SourceID: channel,
 			Status:   SourceQueued,
 		})
@@ -160,8 +160,8 @@ func (s *Store) Claim(ctx context.Context, owner string, lease time.Duration) (*
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var claimLock bool
-	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('task-hunter/collection-claim'))`).Scan(&claimLock); err != nil {
-		return nil, fmt.Errorf("lock collection job claim: %w", err)
+	if lockErr := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('task-hunter/collection-claim'))`).Scan(&claimLock); lockErr != nil {
+		return nil, fmt.Errorf("lock collection job claim: %w", lockErr)
 	}
 	if !claimLock {
 		return nil, nil
@@ -176,18 +176,18 @@ WHERE (status='running' AND lease_expires_at < now())
 ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`)
 
 	var id uuid.UUID
-	if err := row.Scan(&id); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	if scanErr := row.Scan(&id); scanErr != nil {
+		if errors.Is(scanErr, pgx.ErrNoRows) {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("select collection job for claim: %w", err)
+		return nil, fmt.Errorf("select collection job for claim: %w", scanErr)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE collection_jobs SET status='running',lease_owner=$1,lease_expires_at=now()+make_interval(secs => $2),started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$3`, owner, int(lease.Seconds()), id); err != nil {
-		return nil, fmt.Errorf("claim collection job: %w", err)
+	if _, claimErr := tx.Exec(ctx, `UPDATE collection_jobs SET status='running',lease_owner=$1,lease_expires_at=now()+make_interval(secs => $2),started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$3`, owner, int(lease.Seconds()), id); claimErr != nil {
+		return nil, fmt.Errorf("claim collection job: %w", claimErr)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit collection job claim: %w", err)
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, fmt.Errorf("commit collection job claim: %w", commitErr)
 	}
 	job, err := s.Get(ctx, id)
 	if err != nil {
@@ -219,8 +219,8 @@ func (s *Store) RequeueFailed(ctx context.Context, id uuid.UUID) error {
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	if _, err := tx.Exec(ctx, `UPDATE collection_job_sources SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_message='',updated_at=now() WHERE job_id=$1 AND status='failed'`, id); err != nil {
-		return fmt.Errorf("requeue failed collection sources: %w", err)
+	if _, sourceErr := tx.Exec(ctx, `UPDATE collection_job_sources SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_message='',updated_at=now() WHERE job_id=$1 AND status='failed'`, id); sourceErr != nil {
+		return fmt.Errorf("requeue failed collection sources: %w", sourceErr)
 	}
 
 	tag, err := tx.Exec(ctx, `UPDATE collection_jobs SET status='queued',collected_total=0,imported_total=0,duplicates_total=0,invalid_total=0,error_count=0,error_message='',lease_owner=NULL,lease_expires_at=NULL,started_at=NULL,finished_at=NULL,updated_at=now() WHERE id=$1 AND status='failed'`, id)

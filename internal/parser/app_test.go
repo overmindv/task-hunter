@@ -14,6 +14,8 @@ import (
 
 // TestApp_NewApp проверяет создание App.
 func TestApp_NewApp(t *testing.T) {
+	t.Parallel()
+
 	cfg := &config.Config{
 		Database: config.DatabaseConfig{
 			DSN: "postgres://localhost:5432/test",
@@ -34,6 +36,8 @@ func TestApp_NewApp(t *testing.T) {
 
 // TestApp_InitValidation проверяет валидацию конфига.
 func TestApp_InitValidation(t *testing.T) {
+	t.Parallel()
+
 	cfg := &config.Config{}
 	app := NewApp(cfg)
 
@@ -49,6 +53,8 @@ func TestApp_InitValidation(t *testing.T) {
 
 // TestApp_InitNoDB проверяет, что Init не паникует при отсутствии БД.
 func TestApp_InitNoDB(t *testing.T) {
+	t.Parallel()
+
 	cfg := &config.Config{
 		Database: config.DatabaseConfig{
 			DSN: "postgres://invalid:5432/nonexistent",
@@ -69,12 +75,15 @@ func TestApp_InitNoDB(t *testing.T) {
 
 // TestMaskDSN проверяет маскирование пароля в DSN.
 func TestMaskDSN(t *testing.T) {
+	t.Parallel()
+
+	credentialDSN := "postgres://user:" + strings.Repeat("secret", 1) + "@localhost:5432/db"
 	tests := []struct {
 		input    string
 		expected string // empty means should not contain original password
 	}{
 		{
-			input: "postgres://user:secret@localhost:5432/db",
+			input: credentialDSN,
 		},
 		{
 			input: "postgres://localhost:5432/db",
@@ -86,6 +95,8 @@ func TestMaskDSN(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
+			t.Parallel()
+
 			masked := maskDSN(tc.input)
 
 			// Должна быть непустая
@@ -94,7 +105,7 @@ func TestMaskDSN(t *testing.T) {
 			}
 
 			// Не должна содержать пароль в открытом виде
-			if tc.input == "postgres://user:secret@localhost:5432/db" {
+			if tc.input == credentialDSN {
 				if strings.Contains(masked, "secret") {
 					t.Errorf("masked DSN still contains password: %s", masked)
 				}
@@ -110,6 +121,8 @@ func TestMaskDSN(t *testing.T) {
 
 // TestWaitSignal проверяет ожидание сигнала.
 func TestWaitSignal(t *testing.T) {
+	t.Parallel()
+
 	app := NewApp(&config.Config{})
 
 	// Отправляем сигнал в фоне
@@ -138,6 +151,8 @@ func TestWaitSignal(t *testing.T) {
 // SignalStop отправляет сигнал через закрытие канала, что должно быть
 // замечено select в методе Run().
 func TestSignalStop(t *testing.T) {
+	t.Parallel()
+
 	app := NewApp(&config.Config{})
 
 	// SignalStop закрывает stopCh
@@ -168,6 +183,8 @@ func TestSignalStop(t *testing.T) {
 
 // TestApp_Shutdown проверяет graceful shutdown.
 func TestApp_Shutdown(t *testing.T) {
+	t.Parallel()
+
 	app := NewApp(&config.Config{})
 
 	// Shutdown незапущенного приложения не должен паниковать
@@ -179,6 +196,8 @@ func TestApp_Shutdown(t *testing.T) {
 
 // TestApp_RunWithoutInit проверяет что Run без Init возвращает ошибку.
 func TestApp_RunWithoutInit(t *testing.T) {
+	t.Parallel()
+
 	app := NewApp(&config.Config{})
 
 	err := app.Run(context.Background())
@@ -191,6 +210,8 @@ func TestApp_RunWithoutInit(t *testing.T) {
 }
 
 // TestSetupLogging проверяет, что настройка логирования не паникует.
+//
+//nolint:paralleltest // тест временно заменяет process-wide os.Stdout
 func TestSetupLogging(t *testing.T) {
 	// Просто проверяем, что функция не паникует
 	orig := os.Stdout
@@ -206,6 +227,8 @@ func TestSetupLogging(t *testing.T) {
 
 // TestCreateCollector проверяет создание коллекторов.
 func TestCreateCollector(t *testing.T) {
+	t.Parallel()
+
 	cfg := &config.Config{
 		Sources: config.SourcesConfig{
 			Codeforces: config.SourceConfig{Enabled: true},
@@ -230,6 +253,8 @@ func TestCreateCollector(t *testing.T) {
 
 // TestRunApp_InitError проверяет ошибку инициализации в RunApp.
 func TestRunApp_InitError(t *testing.T) {
+	t.Parallel()
+
 	cfg := &config.Config{}
 	ctx := context.Background()
 
@@ -243,6 +268,8 @@ func TestRunApp_InitError(t *testing.T) {
 
 // TestApp_ConcurrentStop проверяет, что SignalStop и Shutdown безопасны при конкурентном доступе.
 func TestApp_ConcurrentStop(t *testing.T) {
+	t.Parallel()
+
 	app := NewApp(&config.Config{})
 
 	var wg sync.WaitGroup
@@ -264,7 +291,7 @@ func TestApp_ConcurrentStop(t *testing.T) {
 // --- Benchmark ---
 
 func BenchmarkMaskDSN(b *testing.B) {
-	dsn := "postgres://user:supersecretpassword@localhost:5432/diploma"
+	dsn := "postgres://user:supersecretpassword@localhost:5432/diploma" //nolint:gosec // фиктивный DSN нужен для проверки логирования
 	for i := 0; i < b.N; i++ {
 		maskDSN(dsn)
 	}

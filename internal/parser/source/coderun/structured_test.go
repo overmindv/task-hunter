@@ -12,6 +12,8 @@ import (
 
 // TestProblemToStructuredRawTask проверяет динамическое условие и примеры CodeRun.
 func TestProblemToStructuredRawTask(t *testing.T) {
+	t.Parallel()
+
 	statementURL := "https://contest-problem-files.s3-private.mds.yandex.net/statement"
 	inputURL := "https://contest-problem-files.s3-private.mds.yandex.net/input"
 	outputURL := "https://contest-problem-files.s3-private.mds.yandex.net/output"

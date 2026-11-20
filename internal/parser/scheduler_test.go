@@ -13,6 +13,8 @@ import (
 	"github.com/overmindv/task-hunter/internal/parser/storage"
 )
 
+const testTaskTitle = "Task"
+
 // --- Mocks ---
 
 type mockCollector struct {
@@ -28,47 +30,15 @@ func (m *mockCollector) Connect(_ context.Context) error { return nil }
 
 func (m *mockCollector) Collect(_ context.Context) ([]domain.RawTask, error) {
 	m.called = true
+
 	return m.tasks, m.err
 }
 
 func (m *mockCollector) Close() error { return nil }
 
-type mockPipeline struct {
-	mu     sync.Mutex
-	calls  int
-	tasks  []pipeline.Result
-	errs   []error
-	callCh chan struct{} // сигнал при каждом вызове
-}
-
-func (m *mockPipeline) Run(_ context.Context, _ domain.RawTask) (pipeline.Result, error) {
-	m.mu.Lock()
-	idx := m.calls
-	m.calls++
-	m.mu.Unlock()
-
-	if m.callCh != nil {
-		select {
-		case m.callCh <- struct{}{}:
-		default:
-		}
-	}
-
-	if idx < len(m.errs) && m.errs[idx] != nil {
-		return pipeline.Result{}, m.errs[idx]
-	}
-
-	var t domain.Task
-	if idx < len(m.tasks) {
-		t = m.tasks[idx].Task
-	}
-	return pipeline.Result{Task: t}, nil
-}
-
 type mockRepository struct {
 	mu       sync.Mutex
 	saves    int
-	skips    int
 	err      error
 	errAfter int // после N успешных вызовов возвращать ошибку
 }
@@ -84,6 +54,7 @@ func (m *mockRepository) Save(_ context.Context, _ domain.Task) error {
 			return m.err
 		}
 	}
+
 	return nil
 }
 
@@ -107,6 +78,8 @@ func (m *mockRepository) Count(_ context.Context, _ storage.Filter) (int, error)
 
 // TestRunOnce_Simple проверяет базовый цикл: 1 источник → 1 задача → сохранение.
 func TestRunOnce_Simple(t *testing.T) {
+	t.Parallel()
+
 	collector := &mockCollector{
 		id: domain.SourceCodeforces,
 		tasks: []domain.RawTask{
@@ -120,6 +93,7 @@ func TestRunOnce_Simple(t *testing.T) {
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
 		task.Title = "Task 1"
 		task.SourceURL = "https://codeforces.com/1"
+
 		return nil
 	}))
 
@@ -144,6 +118,8 @@ func TestRunOnce_Simple(t *testing.T) {
 
 // TestRunOnce_MultipleSources проверяет сбор из нескольких источников.
 func TestRunOnce_MultipleSources(t *testing.T) {
+	t.Parallel()
+
 	c1 := &mockCollector{
 		id: domain.SourceCodeforces,
 		tasks: []domain.RawTask{
@@ -161,7 +137,8 @@ func TestRunOnce_MultipleSources(t *testing.T) {
 
 	pl := &pipeline.Pipeline{}
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		task.Title = "Task"
+		task.Title = testTaskTitle
+
 		return nil
 	}))
 
@@ -186,6 +163,8 @@ func TestRunOnce_MultipleSources(t *testing.T) {
 
 // TestRunOnce_SourceError проверяет, что ошибка в одном источнике не блокирует другие.
 func TestRunOnce_SourceError(t *testing.T) {
+	t.Parallel()
+
 	c1 := &mockCollector{
 		id:  domain.SourceCodeforces,
 		err: errors.New("cf error"),
@@ -200,7 +179,8 @@ func TestRunOnce_SourceError(t *testing.T) {
 
 	pl := &pipeline.Pipeline{}
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		task.Title = "Task"
+		task.Title = testTaskTitle
+
 		return nil
 	}))
 
@@ -225,6 +205,8 @@ func TestRunOnce_SourceError(t *testing.T) {
 
 // TestRunOnce_PipelineError продолжает обработку других задач.
 func TestRunOnce_PipelineError(t *testing.T) {
+	t.Parallel()
+
 	collector := &mockCollector{
 		id: domain.SourceCodeforces,
 		tasks: []domain.RawTask{
@@ -243,6 +225,7 @@ func TestRunOnce_PipelineError(t *testing.T) {
 		}
 		task.Title = "Task 2"
 		task.SourceURL = raw.SourceURL
+
 		return nil
 	}))
 
@@ -264,6 +247,8 @@ func TestRunOnce_PipelineError(t *testing.T) {
 
 // TestRunOnce_Duplicate проверяет обработку дубликатов.
 func TestRunOnce_Duplicate(t *testing.T) {
+	t.Parallel()
+
 	collector := &mockCollector{
 		id: domain.SourceCodeforces,
 		tasks: []domain.RawTask{
@@ -275,7 +260,8 @@ func TestRunOnce_Duplicate(t *testing.T) {
 
 	pl := &pipeline.Pipeline{}
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		task.Title = "Task"
+		task.Title = testTaskTitle
+
 		return nil
 	}))
 
@@ -292,6 +278,8 @@ func TestRunOnce_Duplicate(t *testing.T) {
 
 // TestRunOnce_ContextCancelled проверяет остановку при отмене контекста.
 func TestRunOnce_ContextCancelled(t *testing.T) {
+	t.Parallel()
+
 	ch := make(chan struct{})
 
 	collector := &mockCollector{
@@ -305,7 +293,8 @@ func TestRunOnce_ContextCancelled(t *testing.T) {
 	pl := &pipeline.Pipeline{}
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
 		<-ch // блокируемся
-		task.Title = "Task"
+		task.Title = testTaskTitle
+
 		return nil
 	}))
 
@@ -317,7 +306,7 @@ func TestRunOnce_ContextCancelled(t *testing.T) {
 
 	summary, err := s.RunOnce(ctx)
 	if err != nil {
-		t.Errorf("RunOnce should handle cancelled context gracefully, got: %v", err)
+		t.Errorf("RunOnce should handle canceled context gracefully, got: %v", err)
 	}
 	_ = summary
 	close(ch)
@@ -325,12 +314,15 @@ func TestRunOnce_ContextCancelled(t *testing.T) {
 
 // TestStop_NoBlock проверяет, что Stop не блокирует долго.
 func TestStop_NoBlock(t *testing.T) {
+	t.Parallel()
+
 	collector := &mockCollector{id: domain.SourceCodeforces}
 	sm := source.NewManager(collector)
 
 	pl := &pipeline.Pipeline{}
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		task.Title = "Task"
+		task.Title = testTaskTitle
+
 		return nil
 	}))
 
@@ -371,12 +363,15 @@ func TestStop_NoBlock(t *testing.T) {
 
 // TestStart_InvalidCron проверяет обработку невалидного cron-выражения.
 func TestStart_InvalidCron(t *testing.T) {
+	t.Parallel()
+
 	collector := &mockCollector{id: domain.SourceCodeforces}
 	sm := source.NewManager(collector)
 
 	pl := &pipeline.Pipeline{}
 	pl.AddProcessor("mock", pipeline.ProcessorFunc(func(_ context.Context, _ domain.RawTask, task *domain.Task) error {
-		task.Title = "Task"
+		task.Title = testTaskTitle
+
 		return nil
 	}))
 
@@ -391,6 +386,8 @@ func TestStart_InvalidCron(t *testing.T) {
 
 // TestStop_Idempotent проверяет, что повторный Stop безопасен.
 func TestStop_Idempotent(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(nil, nil, nil)
 
 	// Stop на незапущенном планировщике

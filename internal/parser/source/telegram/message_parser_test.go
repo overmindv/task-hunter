@@ -18,6 +18,8 @@ var update = flag.Bool("update", false, "update golden files")
 
 // TestParseMessage_Simple проверяет парсинг простого текстового сообщения.
 func TestParseMessage_Simple(t *testing.T) {
+	t.Parallel()
+
 	content := readFixture(t, "message_simple.txt")
 	msg := MessageInfo{
 		ID:        42,
@@ -49,6 +51,8 @@ func TestParseMessage_Simple(t *testing.T) {
 
 // TestParseMessage_WithCode проверяет парсинг сообщения с кодом.
 func TestParseMessage_WithCode(t *testing.T) {
+	t.Parallel()
+
 	content := readFixture(t, "message_with_code.txt")
 	msg := MessageInfo{
 		ID:        99,
@@ -77,6 +81,8 @@ func TestParseMessage_WithCode(t *testing.T) {
 
 // TestParseMessage_WithImage проверяет парсинг сообщения с изображением.
 func TestParseMessage_WithImage(t *testing.T) {
+	t.Parallel()
+
 	content := readFixture(t, "message_with_image.txt")
 	msg := MessageInfo{
 		ID:        77,
@@ -100,6 +106,8 @@ func TestParseMessage_WithImage(t *testing.T) {
 
 // TestParseMessage_WithTextAttachment проверяет сообщение с текстовым файлом.
 func TestParseMessage_WithTextAttachment(t *testing.T) {
+	t.Parallel()
+
 	msg := MessageInfo{
 		ID:        55,
 		Text:      "Binary Search implementation:",
@@ -126,6 +134,8 @@ func TestParseMessage_WithTextAttachment(t *testing.T) {
 
 // TestParseMessage_EmptyText проверяет пустое сообщение.
 func TestParseMessage_EmptyText(t *testing.T) {
+	t.Parallel()
+
 	msg := MessageInfo{
 		ID:        1,
 		Text:      "",
@@ -144,6 +154,8 @@ func TestParseMessage_EmptyText(t *testing.T) {
 
 // TestSourceURL_Format проверяет разные форматы SourceURL.
 func TestSourceURL_Format(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		username string
 		msgID    int
@@ -156,6 +168,8 @@ func TestSourceURL_Format(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.username, func(t *testing.T) {
+			t.Parallel()
+
 			url := SourceURL(tc.username, tc.msgID)
 			if url != tc.expected {
 				t.Errorf("expected %q, got %q", tc.expected, url)
@@ -166,6 +180,8 @@ func TestSourceURL_Format(t *testing.T) {
 
 // TestHasCodeBlocks проверяет детекцию блоков кода.
 func TestHasCodeBlocks(t *testing.T) {
+	t.Parallel()
+
 	if !HasCodeBlocks("text ```code``` more") {
 		t.Error("expected true for text with code fences")
 	}
@@ -182,6 +198,8 @@ func TestHasCodeBlocks(t *testing.T) {
 
 // TestTextLengthWithoutCode проверяет подсчёт длины без кода.
 func TestTextLengthWithoutCode(t *testing.T) {
+	t.Parallel()
+
 	text := "Question\n```\nlong code block\n```\nMore text `inline` end"
 
 	length := TextLengthWithoutCode(text)
@@ -197,6 +215,8 @@ func TestTextLengthWithoutCode(t *testing.T) {
 
 // TestParseMessage_SameContent проверяет консистентность контента.
 func TestParseMessage_SameContent(t *testing.T) {
+	t.Parallel()
+
 	msg := MessageInfo{ID: 1, Text: "Same text", Timestamp: time.Now()}
 
 	raw1 := ParseMessage(msg, "algoses", domain.SourceTelegramAlgorithms)
@@ -226,7 +246,7 @@ func formatRawTask(raw domain.RawTask) string {
 
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)
 	}
@@ -235,14 +255,14 @@ func readFixture(t *testing.T, name string) string {
 
 func writeGolden(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // golden-файл не содержит секретов
 		t.Fatalf("write golden %s: %v", path, err)
 	}
 }
 
 func readGolden(t *testing.T, path string) string {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", path, err)
 	}

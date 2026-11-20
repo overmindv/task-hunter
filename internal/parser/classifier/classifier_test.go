@@ -24,6 +24,8 @@ type classifierTestCase struct {
 }
 
 func TestClassify_Golden(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -56,6 +58,8 @@ func TestClassify_Golden(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			task := &domain.Task{
 				Title:       tc.title,
 				Description: tc.desc,
@@ -67,7 +71,7 @@ func TestClassify_Golden(t *testing.T) {
 			}
 
 			got := formatClassifyResult(task)
-			goldenPath := filepath.Join("testdata", tc.name+".golden")
+			goldenPath := filepath.Join(testdataDir, tc.name+".golden")
 
 			if *update {
 				writeGolden(t, goldenPath, got)
@@ -85,6 +89,8 @@ func TestClassify_Golden(t *testing.T) {
 
 // TestClassify_MixedKeywords проверяет выбор типа при совпадении с несколькими.
 func TestClassify_MixedKeywords(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -113,6 +119,8 @@ func TestClassify_MixedKeywords(t *testing.T) {
 
 // TestClassify_EmptyDescription проверяет пустое описание.
 func TestClassify_EmptyDescription(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -132,6 +140,8 @@ func TestClassify_EmptyDescription(t *testing.T) {
 
 // TestClassify_NilTask проверяет, что передача nil не вызывает паники.
 func TestClassify_NilTask(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -143,6 +153,8 @@ func TestClassify_NilTask(t *testing.T) {
 
 // TestClassify_WithTags проверяет классификацию с учётом тегов.
 func TestClassify_WithTags(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -163,6 +175,8 @@ func TestClassify_WithTags(t *testing.T) {
 
 // TestClassify_PreservesSourceDifficulty проверяет приоритет точной метки источника.
 func TestClassify_PreservesSourceDifficulty(t *testing.T) {
+	t.Parallel()
+
 	task := &domain.Task{
 		Title:       "A very long easy task",
 		Description: strings.Repeat("description ", 300),
@@ -178,6 +192,8 @@ func TestClassify_PreservesSourceDifficulty(t *testing.T) {
 
 // TestClassify_PipelineProcessor проверяет, что RuleBasedClassifier работает как pipeline.Processor.
 func TestClassify_PipelineProcessor(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 	ctx := context.Background()
 
@@ -201,44 +217,48 @@ func TestClassify_PipelineProcessor(t *testing.T) {
 func readTitle(t *testing.T, name string) string {
 	t.Helper()
 	data := readFixture(t, name)
-	parts := strings.SplitN(string(data), "\n", 2)
+	parts := strings.SplitN(data, "\n", 2)
 	if len(parts) == 0 {
 		return ""
 	}
+
 	return strings.TrimSpace(parts[0])
 }
 
 func readBody(t *testing.T, name string) string {
 	t.Helper()
 	data := readFixture(t, name)
-	parts := strings.SplitN(string(data), "\n", 2)
+	parts := strings.SplitN(data, "\n", 2)
 	if len(parts) < 2 {
 		return ""
 	}
+
 	return strings.TrimSpace(parts[1])
 }
 
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", name))
+	data, err := os.ReadFile(filepath.Join(testdataDir, name)) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)
 	}
+
 	return string(data)
 }
 
 func writeGolden(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil { //nolint:gosec // golden-файл не содержит секретов
 		t.Fatalf("write golden %s: %v", path, err)
 	}
 }
 
 func readGolden(t *testing.T, path string) string {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", path, err)
 	}
+
 	return string(data)
 }

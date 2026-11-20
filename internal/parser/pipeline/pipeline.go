@@ -173,6 +173,7 @@ func NewDefaultPipeline() *Pipeline {
 		task.SourceHash = domain.GenerateSourceHash(raw.Source.ID, raw.SourceURL, raw.RawContent)
 		// Временный title, пока заглушка. Реальный экстрактор будет извлекать из контента.
 		task.Title = raw.Source.Name
+
 		return nil
 	}))
 
@@ -181,12 +182,14 @@ func NewDefaultPipeline() *Pipeline {
 		if task.Description == "" && len(raw.RawContent) > 0 {
 			task.Description = string(raw.RawContent)
 		}
+
 		return nil
 	}))
 
 	// Normalizer (заглушка)
 	p.AddProcessor("normalizer", ProcessorFunc(func(_ context.Context, raw domain.RawTask, task *domain.Task) error {
 		_ = raw
+
 		return nil
 	}))
 
@@ -196,6 +199,7 @@ func NewDefaultPipeline() *Pipeline {
 	// Validator (заглушка)
 	p.AddProcessor("validator", ProcessorFunc(func(_ context.Context, raw domain.RawTask, task *domain.Task) error {
 		_ = raw
+
 		return task.Validate()
 	}))
 

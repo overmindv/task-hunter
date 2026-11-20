@@ -12,6 +12,8 @@ import (
 
 // TestLiveWebsiteExamples проверяет реальные ссылки поддерживаемых сайтов по явному флагу.
 func TestLiveWebsiteExamples(t *testing.T) {
+	t.Parallel()
+
 	if os.Getenv("RUN_LIVE_WEBSITE_TESTS") != "1" {
 		t.Skip("set RUN_LIVE_WEBSITE_TESTS=1")
 	}
@@ -22,12 +24,14 @@ func TestLiveWebsiteExamples(t *testing.T) {
 		source string
 		url    string
 	}{
-		{source: "coderun", url: "https://coderun.yandex.ru/problem/knight-move"},
-		{source: "leetcode", url: "https://leetcode.com/problems/two-sum"},
-		{source: "codeforces", url: "https://codeforces.com/problemset/problem/1/A"},
+		{source: sourceCodeRun, url: "https://coderun.yandex.ru/problem/knight-move"},
+		{source: sourceLeetCode, url: "https://leetcode.com/problems/two-sum"},
+		{source: sourceCodeforces, url: "https://codeforces.com/problemset/problem/1/A"},
 	}
 	for _, test := range tests {
 		t.Run(test.source, func(t *testing.T) {
+			t.Parallel()
+
 			batch, err := reader.ReadURL(context.Background(), test.source, test.url)
 			if err != nil {
 				t.Fatal(err)

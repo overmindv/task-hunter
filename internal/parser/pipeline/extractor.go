@@ -100,6 +100,7 @@ func extractFromHTML(htmlContent string) extractedContent {
 	if err != nil {
 		// Если HTML невалидный — пробуем как plain text
 		title, desc := extractTitleFromPlain(htmlContent)
+
 		return extractedContent{title: title, text: desc}
 	}
 
@@ -239,6 +240,7 @@ func extractTitleFromPlain(text string) (title string, description string) {
 	}
 
 	desc := strings.TrimSpace(lines[1])
+
 	return firstLine, desc
 }
 

@@ -62,12 +62,14 @@ func NewCollector(id domain.SourceID, client httpClient) *Collector {
 func (c *Collector) WithMinInterval(d time.Duration) *Collector {
 	c.rateLimiter.Stop()
 	c.rateLimiter = time.NewTicker(d)
+
 	return c
 }
 
 // WithLanguage устанавливает язык задач.
 func (c *Collector) WithLanguage(lang string) *Collector {
 	c.language = lang
+
 	return c
 }
 
@@ -91,6 +93,7 @@ func (c *Collector) Connect(_ context.Context) error {
 // Close освобождает ресурсы.
 func (c *Collector) Close() error {
 	c.rateLimiter.Stop()
+
 	return nil
 }
 
@@ -126,6 +129,7 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 
 	if len(problems) == 0 {
 		slog.Debug("codeforces: no problems found")
+
 		return nil, nil
 	}
 
@@ -143,6 +147,7 @@ func (c *Collector) Collect(ctx context.Context) ([]domain.RawTask, error) {
 		if err != nil {
 			slog.Warn("codeforces: failed to fetch problem page",
 				"contest_id", p.ContestID, "index", p.Index, "error", err)
+
 			continue
 		}
 
@@ -450,6 +455,7 @@ func parseReaderExamples(lines []string) []domain.Example {
 	for index := 0; index < len(lines); {
 		if !strings.EqualFold(lines[index], "Input") {
 			index++
+
 			continue
 		}
 		index++
@@ -525,6 +531,7 @@ func mapRatingToDifficulty(rating int) domain.Difficulty {
 	if rating <= 1600 {
 		return domain.DifficultyMedium
 	}
+
 	return domain.DifficultyHard
 }
 
@@ -533,6 +540,7 @@ func min(a, b int) int {
 	if a < b {
 		return a
 	}
+
 	return b
 }
 

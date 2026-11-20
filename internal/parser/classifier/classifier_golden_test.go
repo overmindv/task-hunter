@@ -13,6 +13,8 @@ import (
 	"github.com/overmindv/task-hunter/internal/parser/domain"
 )
 
+const testdataDir = "testdata"
+
 // GoldenTestResult — результат классификации для golden-файлов.
 type GoldenTestResult struct {
 	Type       string   `json:"type"`
@@ -25,7 +27,7 @@ func runClassifierTest(t *testing.T, classifier *RuleBasedClassifier, inputPath,
 	t.Helper()
 
 	// Читаем входной файл
-	data, err := os.ReadFile(inputPath)
+	data, err := os.ReadFile(inputPath) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read input %s: %v", inputPath, err)
 	}
@@ -44,8 +46,8 @@ func runClassifierTest(t *testing.T, classifier *RuleBasedClassifier, inputPath,
 	}
 
 	ctx := context.Background()
-	if err := classifier.Classify(ctx, task); err != nil {
-		t.Fatalf("Classify: %v", err)
+	if classifyErr := classifier.Classify(ctx, task); classifyErr != nil {
+		t.Fatalf("Classify: %v", classifyErr)
 	}
 
 	result := GoldenTestResult{
@@ -57,12 +59,12 @@ func runClassifierTest(t *testing.T, classifier *RuleBasedClassifier, inputPath,
 	got := mustJSON(t, result)
 
 	if *update {
-		if err := os.WriteFile(goldenPath, []byte(got+"\n"), 0644); err != nil {
-			t.Fatalf("write golden %s: %v", goldenPath, err)
+		if writeErr := os.WriteFile(goldenPath, []byte(got+"\n"), 0644); writeErr != nil { //nolint:gosec // golden-файл не содержит секретов
+			t.Fatalf("write golden %s: %v", goldenPath, writeErr)
 		}
 	}
 
-	expectedData, err := os.ReadFile(goldenPath)
+	expectedData, err := os.ReadFile(goldenPath) //nolint:gosec // путь относится к testdata или t.TempDir
 	if err != nil {
 		t.Fatalf("read golden %s: %v", goldenPath, err)
 	}
@@ -75,6 +77,8 @@ func runClassifierTest(t *testing.T, classifier *RuleBasedClassifier, inputPath,
 
 // TestClassify_GoldenSubdirs проверяет классификацию на golden-файлах в поддиректориях.
 func TestClassify_GoldenSubdirs(t *testing.T) {
+	t.Parallel()
+
 	c := NewRuleBasedClassifier()
 
 	// Директории с тестовыми данными по типам задач
@@ -88,7 +92,7 @@ func TestClassify_GoldenSubdirs(t *testing.T) {
 		"datastructures",
 	}
 
-	baseDir := "testdata"
+	baseDir := testdataDir
 
 	for _, dir := range dirs {
 		dirPath := filepath.Join(baseDir, dir)
@@ -109,11 +113,9 @@ func TestClassify_GoldenSubdirs(t *testing.T) {
 			goldenPath := filepath.Join(dirPath, name+".golden")
 
 			t.Run(dir+"/"+name, func(t *testing.T) {
-				runClassifierTest(t, c, inputPath, goldenPath)
+				t.Parallel()
 
-				if entry.Name() == "graph_dfs.txt" {
-					// Дополнительная проверка для демонстрации
-				}
+				runClassifierTest(t, c, inputPath, goldenPath)
 			})
 		}
 	}
@@ -121,12 +123,14 @@ func TestClassify_GoldenSubdirs(t *testing.T) {
 
 // TestClassify_UpdateFlag проверяет, что -update перезаписывает golden-файлы.
 func TestClassify_UpdateFlag(t *testing.T) {
+	t.Parallel()
+
 	if !*update {
 		t.Skip("skip: update flag is not set")
 	}
 
 	// Проверяем, что все golden-файлы существуют после обновления
-	baseDir := "testdata"
+	baseDir := testdataDir
 
 	dirs := []string{
 		"algorithms",
@@ -168,6 +172,7 @@ func mustJSON(t *testing.T, v any) string {
 	if err != nil {
 		t.Fatalf("marshal json: %v", err)
 	}
+
 	return string(data)
 }
 
@@ -180,6 +185,7 @@ func tagStrings(tags []domain.Tag) []string {
 		result[i] = string(tag)
 	}
 	sort.Strings(result)
+
 	return result
 }
 
