@@ -9,6 +9,8 @@ import (
 
 // TestTask_Validate_Valid проверяет, что корректная задача проходит валидацию.
 func TestTask_Validate_Valid(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	if err := task.Validate(); err != nil {
 		t.Errorf("expected no error, got: %v", err)
@@ -17,6 +19,8 @@ func TestTask_Validate_Valid(t *testing.T) {
 
 // TestTask_Validate_EmptyTitle проверяет ошибку при пустом заголовке.
 func TestTask_Validate_EmptyTitle(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	task.Title = ""
 	if err := task.Validate(); err == nil {
@@ -26,6 +30,8 @@ func TestTask_Validate_EmptyTitle(t *testing.T) {
 
 // TestTask_Validate_EmptyDescription проверяет ошибку при пустом описании.
 func TestTask_Validate_EmptyDescription(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	task.Description = ""
 	if err := task.Validate(); err == nil {
@@ -35,6 +41,8 @@ func TestTask_Validate_EmptyDescription(t *testing.T) {
 
 // TestTask_Validate_EmptySourceURL проверяет ошибку при отсутствии ссылки.
 func TestTask_Validate_EmptySourceURL(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	task.SourceURL = ""
 	if err := task.Validate(); err == nil {
@@ -44,6 +52,8 @@ func TestTask_Validate_EmptySourceURL(t *testing.T) {
 
 // TestTask_Validate_EmptySourceHash проверяет ошибку при отсутствии хеша.
 func TestTask_Validate_EmptySourceHash(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	task.SourceHash = ""
 	if err := task.Validate(); err == nil {
@@ -53,6 +63,8 @@ func TestTask_Validate_EmptySourceHash(t *testing.T) {
 
 // TestTask_Validate_EmptySourceID проверяет ошибку при отсутствии идентификатора источника.
 func TestTask_Validate_EmptySourceID(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	task.Source.ID = ""
 	if err := task.Validate(); err == nil {
@@ -62,6 +74,8 @@ func TestTask_Validate_EmptySourceID(t *testing.T) {
 
 // TestGenerateSourceHash_Consistent проверяет, что одинаковые данные дают одинаковый хеш.
 func TestGenerateSourceHash_Consistent(t *testing.T) {
+	t.Parallel()
+
 	h1 := GenerateSourceHash(SourceLeetCode, "https://leetcode.com/problems/two-sum", []byte("Two Sum Problem"))
 	h2 := GenerateSourceHash(SourceLeetCode, "https://leetcode.com/problems/two-sum", []byte("Two Sum Problem"))
 
@@ -73,6 +87,8 @@ func TestGenerateSourceHash_Consistent(t *testing.T) {
 // TestGenerateSourceHash_DifferentSources проверяет, что одинаковый контент
 // из разных источников даёт разные хеши.
 func TestGenerateSourceHash_DifferentSources(t *testing.T) {
+	t.Parallel()
+
 	h1 := GenerateSourceHash(SourceLeetCode, "https://leetcode.com/problems/two-sum", []byte("Two Sum Problem"))
 	h2 := GenerateSourceHash(SourceCodeforces, "https://codeforces.com/problemset/problem/1/A", []byte("Two Sum Problem"))
 
@@ -83,6 +99,8 @@ func TestGenerateSourceHash_DifferentSources(t *testing.T) {
 
 // TestGenerateSourceHash_DifferentContent проверяет, что разный контент даёт разные хеши.
 func TestGenerateSourceHash_DifferentContent(t *testing.T) {
+	t.Parallel()
+
 	h1 := GenerateSourceHash(SourceLeetCode, "https://leetcode.com/problems/two-sum", []byte("Two Sum Problem"))
 	h2 := GenerateSourceHash(SourceLeetCode, "https://leetcode.com/problems/two-sum", []byte("Three Sum Problem"))
 
@@ -93,6 +111,8 @@ func TestGenerateSourceHash_DifferentContent(t *testing.T) {
 
 // TestTaskType_String проверяет строковое представление типов задач.
 func TestTaskType_String(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		tt       TaskType
 		expected string
@@ -104,11 +124,13 @@ func TestTaskType_String(t *testing.T) {
 		{TaskTypeInfrastructure, "infrastructure"},
 		{TaskTypeTesting, "testing"},
 		{TaskTypeCodeReview, "code_review"},
-		{TaskType(100), "unknown"},
+		{TaskType(100), unknownValue},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.expected, func(t *testing.T) {
+			t.Parallel()
+
 			if got := tc.tt.String(); got != tc.expected {
 				t.Errorf("expected %s, got %s", tc.expected, got)
 			}
@@ -118,19 +140,23 @@ func TestTaskType_String(t *testing.T) {
 
 // TestDifficulty_String проверяет строковое представление сложности.
 func TestDifficulty_String(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		d        Difficulty
 		expected string
 	}{
-		{DifficultyUnknown, "unknown"},
+		{DifficultyUnknown, unknownValue},
 		{DifficultyEasy, "easy"},
 		{DifficultyMedium, "medium"},
 		{DifficultyHard, "hard"},
-		{Difficulty(100), "unknown"},
+		{Difficulty(100), unknownValue},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.expected, func(t *testing.T) {
+			t.Parallel()
+
 			if got := tc.d.String(); got != tc.expected {
 				t.Errorf("expected %s, got %s", tc.expected, got)
 			}
@@ -140,6 +166,8 @@ func TestDifficulty_String(t *testing.T) {
 
 // TestSourceID_Constants проверяет, что все константы SourceID уникальны.
 func TestSourceID_Constants(t *testing.T) {
+	t.Parallel()
+
 	ids := []SourceID{
 		SourceTelegramAnalytics,
 		SourceTelegramML,
@@ -167,6 +195,8 @@ func TestSourceID_Constants(t *testing.T) {
 
 // TestTaskType_Constants проверяет, что все константы TaskType не пересекаются.
 func TestTaskType_Constants(t *testing.T) {
+	t.Parallel()
+
 	types := []TaskType{
 		TaskTypeAlgorithm,
 		TaskTypeDataStructures,
@@ -188,6 +218,8 @@ func TestTaskType_Constants(t *testing.T) {
 
 // TestGenerateSourceHashFromTask проверяет корректность генерации хеша из задачи.
 func TestGenerateSourceHashFromTask(t *testing.T) {
+	t.Parallel()
+
 	task := validTask()
 	hash := GenerateSourceHashFromTask(task)
 

@@ -38,6 +38,7 @@ func NewManager(collectors ...Collector) *Manager {
 	for _, c := range collectors {
 		m.collectors[c.ID()] = c
 	}
+
 	return m
 }
 
@@ -65,6 +66,7 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 			return fmt.Errorf("connect %s: %w", id, err)
 		}
 	}
+
 	return nil
 }
 
@@ -75,6 +77,7 @@ func (m *Manager) CloseAll() error {
 			return fmt.Errorf("close %s: %w", id, err)
 		}
 	}
+
 	return nil
 }
 
