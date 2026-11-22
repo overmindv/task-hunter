@@ -55,6 +55,8 @@ const (
 
 // Job хранит параметры, прогресс и уведомление о сборе.
 type Job struct {
+	// LeaseToken выдаётся на один Claim и не раскрывается через HTTP.
+	LeaseToken               string      `json:"-"`
 	ID                       uuid.UUID   `json:"id"`
 	Trigger                  string      `json:"trigger"`
 	RequestedBy              *uuid.UUID  `json:"requested_by,omitempty"`

@@ -12,6 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// ErrLeaseLost означает, что попытка больше не имеет права изменять задание.
+var ErrLeaseLost = errors.New("collection job lease is no longer owned")
+
 // Store сохраняет задания, источники и checkpoint в PostgreSQL.
 type Store struct {
 	db *pgxpool.Pool
@@ -183,7 +186,8 @@ ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`)
 
 		return nil, fmt.Errorf("select collection job for claim: %w", scanErr)
 	}
-	if _, claimErr := tx.Exec(ctx, `UPDATE collection_jobs SET status='running',lease_owner=$1,lease_expires_at=now()+make_interval(secs => $2),started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$3`, owner, int(lease.Seconds()), id); claimErr != nil {
+	token := owner + "/" + uuid.NewString()
+	if _, claimErr := tx.Exec(ctx, `UPDATE collection_jobs SET status='running',lease_owner=$1,lease_expires_at=clock_timestamp()+make_interval(secs => $2),started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$3`, token, lease.Seconds(), id); claimErr != nil {
 		return nil, fmt.Errorf("claim collection job: %w", claimErr)
 	}
 	if commitErr := tx.Commit(ctx); commitErr != nil {
@@ -194,21 +198,21 @@ ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`)
 		return nil, err
 	}
 
+	job.LeaseToken = token
+
 	return &job, nil
 }
 
 // RenewLease продлевает аренду только текущему владельцу активного задания.
 func (s *Store) RenewLease(ctx context.Context, id uuid.UUID, owner string, lease time.Duration) error {
-	tag, err := s.db.Exec(ctx, `UPDATE collection_jobs SET lease_expires_at=now()+make_interval(secs => $1),updated_at=now() WHERE id=$2 AND status='running' AND lease_owner=$3`, int(lease.Seconds()), id, owner)
-	if err != nil {
-		return fmt.Errorf("renew collection job lease: %w", err)
-	}
+	return s.withLease(ctx, Job{ID: id, LeaseToken: owner}, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE collection_jobs SET lease_expires_at=clock_timestamp()+make_interval(secs => $1),updated_at=now() WHERE id=$2`, lease.Seconds(), id)
+		if err != nil {
+			return fmt.Errorf("renew collection job lease: %w", err)
+		}
 
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("collection job lease is no longer owned")
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // RequeueFailed возвращает полностью неуспешный bootstrap в очередь после устранения причины.
@@ -298,31 +302,76 @@ func (s *Store) List(ctx context.Context, actorID uuid.UUID, unreadOnly bool, li
 	return items, nil
 }
 
-// StartSource переводит отдельный источник в running.
-func (s *Store) StartSource(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.Exec(ctx, `UPDATE collection_job_sources SET status='running',updated_at=now() WHERE id=$1`, id)
+// withLease сериализует запись с повторным Claim на строке задания.
+// Проверка внутри той же транзакции не позволяет старому worker пройти TOCTOU.
+func (s *Store) withLease(ctx context.Context, job Job, write func(pgx.Tx) error) error {
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("start collection source: %w", err)
-
+		return fmt.Errorf("begin leased write: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	var id uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT id FROM collection_jobs WHERE id=$1 AND status='running'
+ AND lease_owner=$2 FOR UPDATE`, job.ID, job.LeaseToken).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrLeaseLost
+	}
+	if err != nil {
+		return fmt.Errorf("lock leased job: %w", err)
+	}
+	// Время проверяется после захвата блокировки: ожидание lock могло исчерпать lease.
+	var live bool
+	if err = tx.QueryRow(ctx, `SELECT lease_expires_at > clock_timestamp() FROM collection_jobs WHERE id=$1`, job.ID).Scan(&live); err != nil {
+		return fmt.Errorf("check lease expiry: %w", err)
+	}
+	if !live {
+		return ErrLeaseLost
+	}
+	if err = write(tx); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit leased write: %w", err)
 	}
 
 	return nil
 }
 
-// FinishSource сохраняет итог отдельного источника.
-func (s *Store) FinishSource(ctx context.Context, source JobSource) error {
-	_, err := s.db.Exec(ctx, `UPDATE collection_job_sources SET status=$1,collected_total=$2,imported_total=$3,duplicates_total=$4,invalid_total=$5,error_message=$6,updated_at=now() WHERE id=$7`,
-		source.Status, source.CollectedTotal, source.ImportedTotal, source.DuplicatesTotal, source.InvalidTotal, source.ErrorMessage, source.ID)
-	if err != nil {
-		return fmt.Errorf("finish collection source: %w", err)
-	}
+// StartSource переводит источник в running только в текущей попытке задания.
+func (s *Store) StartSource(ctx context.Context, job Job, id uuid.UUID) error {
+	return s.withLease(ctx, job, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE collection_job_sources SET status='running',updated_at=now() WHERE id=$1 AND job_id=$2`, id, job.ID)
+		if err != nil {
+			return fmt.Errorf("start collection source: %w", err)
+		}
+		if tag.RowsAffected() != 1 {
+			return fmt.Errorf("collection source not found in job")
+		}
 
-	return nil
+		return nil
+	})
 }
 
-// FinishJob агрегирует source-результаты и завершает job.
-func (s *Store) FinishJob(ctx context.Context, id uuid.UUID) error {
-	_, err := s.db.Exec(ctx, `UPDATE collection_jobs j SET
+// FinishSource сохраняет итог источника только при действующей аренде.
+func (s *Store) FinishSource(ctx context.Context, job Job, source JobSource) error {
+	return s.withLease(ctx, job, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE collection_job_sources SET status=$1,collected_total=$2,imported_total=$3,duplicates_total=$4,invalid_total=$5,error_message=$6,updated_at=now() WHERE id=$7 AND job_id=$8`,
+			source.Status, source.CollectedTotal, source.ImportedTotal, source.DuplicatesTotal, source.InvalidTotal, source.ErrorMessage, source.ID, job.ID)
+		if err != nil {
+			return fmt.Errorf("finish collection source: %w", err)
+		}
+		if tag.RowsAffected() != 1 {
+			return fmt.Errorf("collection source not found in job")
+		}
+
+		return nil
+	})
+}
+
+// FinishJob агрегирует результаты, не позволяя старой попытке завершить новую.
+func (s *Store) FinishJob(ctx context.Context, job Job) error {
+	return s.withLease(ctx, job, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE collection_jobs j SET
 collected_total=x.collected,imported_total=x.imported,duplicates_total=x.duplicates,invalid_total=x.invalid,error_count=x.errors,
 status=CASE WHEN x.errors=0 THEN 'succeeded' WHEN x.successes=0 THEN 'failed' ELSE 'partial' END,
 error_message=CASE WHEN x.errors>0 THEN 'часть источников завершилась с ошибкой' ELSE '' END,
@@ -330,12 +379,13 @@ lease_owner=NULL,lease_expires_at=NULL,finished_at=now(),updated_at=now()
 FROM (SELECT job_id,COALESCE(sum(collected_total),0) collected,COALESCE(sum(imported_total),0) imported,
 COALESCE(sum(duplicates_total),0) duplicates,COALESCE(sum(invalid_total),0) invalid,
 count(*) FILTER (WHERE status='failed') errors,count(*) FILTER (WHERE status IN ('succeeded','truncated')) successes
-FROM collection_job_sources WHERE job_id=$1 GROUP BY job_id) x WHERE j.id=x.job_id`, id)
-	if err != nil {
-		return fmt.Errorf("finish collection job: %w", err)
-	}
+FROM collection_job_sources WHERE job_id=$1 GROUP BY job_id) x WHERE j.id=x.job_id`, job.ID)
+		if err != nil {
+			return fmt.Errorf("finish collection job: %w", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // Acknowledge помечает terminal notification прочитанным только владельцем.
@@ -368,16 +418,18 @@ func (s *Store) GetCheckpoint(ctx context.Context, sourceID string) (*Checkpoint
 	return &checkpoint, nil
 }
 
-// UpsertCheckpoint продвигает Telegram checkpoint только вперёд.
-func (s *Store) UpsertCheckpoint(ctx context.Context, checkpoint Checkpoint) error {
-	_, err := s.db.Exec(ctx, `INSERT INTO collection_checkpoints (source_id,last_message_id,last_published_at) VALUES ($1,$2,$3)
+// UpsertCheckpoint продвигает checkpoint только вперёд и только текущей попыткой.
+func (s *Store) UpsertCheckpoint(ctx context.Context, job Job, checkpoint Checkpoint) error {
+	return s.withLease(ctx, job, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO collection_checkpoints (source_id,last_message_id,last_published_at) VALUES ($1,$2,$3)
 ON CONFLICT (source_id) DO UPDATE SET last_message_id=EXCLUDED.last_message_id,last_published_at=EXCLUDED.last_published_at,updated_at=now()
 WHERE collection_checkpoints.last_message_id < EXCLUDED.last_message_id`, checkpoint.SourceID, checkpoint.LastMessageID, checkpoint.LastPublishedAt)
-	if err != nil {
-		return fmt.Errorf("upsert collection checkpoint: %w", err)
-	}
+		if err != nil {
+			return fmt.Errorf("upsert collection checkpoint: %w", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // listSources возвращает источники задания в стабильном порядке.

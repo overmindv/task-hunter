@@ -39,7 +39,7 @@ test-unit: ## Запустить unit-тесты
 	$(GO) test $(GOTESTFLAGS) ./internal/...
 
 test-component: ## Запустить компонентные тесты (требуют БД)
-	$(GO) test $(GOTESTFLAGS) -tags=component ./tests/component
+	$(GO) test $(GOTESTFLAGS) -tags=component ./tests/component ./internal/collection
 
 test-coverage: ## Запустить тесты с отчётом о покрытии
 	$(GO) test $(GOTESTFLAGS) -coverprofile=coverage.out ./...

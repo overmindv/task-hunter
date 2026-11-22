@@ -77,23 +77,30 @@ func (w *Worker) runNext(ctx context.Context) error {
 	}
 	w.wg.Add(1)
 	defer w.wg.Done()
-	leaseCtx, cancelLease := context.WithCancel(ctx)
-	defer cancelLease()
-	go w.renewLease(leaseCtx, job.ID)
+	leaseCtx, cancelLease := context.WithCancelCause(ctx)
+	leaseDone := make(chan struct{})
+	go func() {
+		defer close(leaseDone)
+		w.renewLease(leaseCtx, *job, cancelLease)
+	}()
+	defer func() { cancelLease(nil); <-leaseDone }()
 
 	for _, source := range job.Sources {
 		if source.Status == SourceSucceeded || source.Status == SourceTruncated {
 			continue
 		}
-		if err := w.store.StartSource(ctx, source.ID); err != nil {
+		if err := w.store.StartSource(leaseCtx, *job, source.ID); err != nil {
 			return fmt.Errorf("start source: %w", err)
 		}
-		result := w.processSource(ctx, *job, source)
-		if err := w.store.FinishSource(ctx, result); err != nil {
+		result := w.processSource(leaseCtx, *job, source)
+		if leaseCtx.Err() != nil {
+			return context.Cause(leaseCtx)
+		}
+		if err := w.store.FinishSource(leaseCtx, *job, result); err != nil {
 			return fmt.Errorf("finish source: %w", err)
 		}
 	}
-	if err := w.store.FinishJob(ctx, job.ID); err != nil {
+	if err := w.store.FinishJob(leaseCtx, *job); err != nil {
 		return fmt.Errorf("finish job: %w", err)
 	}
 
@@ -101,10 +108,12 @@ func (w *Worker) runNext(ctx context.Context) error {
 }
 
 // renewLease не позволяет второй реплике забрать долгую активную job.
-func (w *Worker) renewLease(ctx context.Context, jobID uuid.UUID) {
+func (w *Worker) renewLease(ctx context.Context, job Job, cancel context.CancelCauseFunc) {
 	interval := w.lease / 3
-	if interval < time.Second {
-		interval = time.Second
+	if interval <= 0 {
+		cancel(fmt.Errorf("collection lease must be positive"))
+
+		return
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -113,8 +122,16 @@ func (w *Worker) renewLease(ctx context.Context, jobID uuid.UUID) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := w.store.RenewLease(ctx, jobID, w.owner, w.lease); err != nil {
-				slog.Error("renew collection job lease", "job_id", jobID, "error", err)
+			renewCtx, stop := context.WithTimeout(ctx, interval)
+			err := w.store.RenewLease(renewCtx, job.ID, job.LeaseToken, w.lease)
+			stop()
+			if err != nil {
+				if ctx.Err() == nil {
+					slog.Error("renew collection job lease", "job_id", job.ID, "error", err)
+				}
+				cancel(err)
+
+				return
 			}
 		}
 	}
@@ -161,7 +178,7 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 				last = candidate
 			}
 		}
-		if err := w.store.UpsertCheckpoint(ctx, Checkpoint{SourceID: source.SourceID, LastMessageID: last.MessageID, LastPublishedAt: *last.SourcePublishedAt}); err != nil {
+		if err := w.store.UpsertCheckpoint(ctx, job, Checkpoint{SourceID: source.SourceID, LastMessageID: last.MessageID, LastPublishedAt: *last.SourcePublishedAt}); err != nil {
 			result.ErrorMessage = safeError(err)
 
 			return result
