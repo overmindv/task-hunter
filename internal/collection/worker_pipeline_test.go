@@ -67,9 +67,12 @@ func TestCollectWebsiteProblemList(t *testing.T) {
 	}, nil, "test", time.Second, time.Minute)
 
 	job := Job{ID: uuid.New(), MaxItemsPerSource: 2}
-	candidates, err := worker.collectWebsite(context.Background(), job, JobSource{})
+	candidates, truncated, err := worker.collectWebsite(context.Background(), job, JobSource{})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !truncated {
+		t.Fatal("лимит job'а не пометил источник неполным")
 	}
 	if len(candidates) != 2 {
 		t.Fatalf("expected 2 candidates (limit), got %d", len(candidates))
@@ -81,5 +84,37 @@ func TestCollectWebsiteProblemList(t *testing.T) {
 		if candidate.ProblemList == nil || candidate.ProblemList.SourceURL != "https://leetcode.com/problem-list/oy4y273c" {
 			t.Fatalf("problem list not propagated: %#v", candidate.ProblemList)
 		}
+	}
+}
+
+// TestCollectWebsitePartialBatch проверяет, что неполный ответ парсера
+// отмечает источник truncated даже без срабатывания лимита job'а.
+func TestCollectWebsitePartialBatch(t *testing.T) {
+	t.Parallel()
+
+	worker := NewWorker(nil, nil, &stubWebsiteReader{
+		batch: WebsiteBatch{
+			RawTasks: []domain.RawTask{
+				{Source: domain.Source{ID: domain.SourceLeetCode, Name: "LeetCode", Type: domain.SourceTypeWebsite}, SourceURL: "https://leetcode.com/problems/two-sum", Statement: "Find two numbers in the array."},
+			},
+			Partial: true,
+			ProblemList: &ProblemListRef{
+				Name:      "oy4y273c",
+				SourceID:  sourceLeetCode,
+				SourceURL: "https://leetcode.com/problem-list/oy4y273c",
+			},
+		},
+	}, nil, "test", time.Second, time.Minute)
+
+	job := Job{ID: uuid.New(), MaxItemsPerSource: 10}
+	candidates, truncated, err := worker.collectWebsite(context.Background(), job, JobSource{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(candidates))
+	}
+	if !truncated {
+		t.Fatal("неполный батч не пометил источник truncated")
 	}
 }
