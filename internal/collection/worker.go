@@ -260,6 +260,11 @@ func (w *Worker) collectWebsite(ctx context.Context, job Job, source JobSource) 
 		candidate.ProblemList = batch.ProblemList
 		items = append(items, candidate)
 	}
+	// Признак неполного списка передаётся tasks вместе со ссылкой на список:
+	// кандидаты держат указатель на тот же объект, поэтому достаточно одного update.
+	if batch.ProblemList != nil {
+		batch.ProblemList.Truncated = truncated
+	}
 
 	return items, truncated, nil
 }
