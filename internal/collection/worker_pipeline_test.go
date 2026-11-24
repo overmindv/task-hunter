@@ -117,4 +117,7 @@ func TestCollectWebsitePartialBatch(t *testing.T) {
 	if !truncated {
 		t.Fatal("неполный батч не пометил источник truncated")
 	}
+	if candidates[0].ProblemList == nil || !candidates[0].ProblemList.Truncated {
+		t.Fatal("кандидат не передал признак неполного списка в tasks")
+	}
 }

@@ -137,6 +137,9 @@ type ProblemListRef struct {
 	Name      string `json:"name"`
 	SourceID  string `json:"source_id"`
 	SourceURL string `json:"source_url"`
+	// Truncated — список собран не полностью: парсер пометил ответ неполным
+	// или сработал лимит job'а.
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // Example хранит открытый пример задачи.
