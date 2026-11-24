@@ -142,12 +142,13 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 	result := source
 	result.Status = SourceFailed
 	var candidates []Candidate
+	var truncated bool
 	var err error
 	switch source.Kind {
 	case sourceTelegram:
 		candidates, err = w.collectTelegram(ctx, job, source)
 	case "website":
-		candidates, err = w.collectWebsite(ctx, job, source)
+		candidates, truncated, err = w.collectWebsite(ctx, job, source)
 	default:
 		err = fmt.Errorf("unsupported source kind %q", source.Kind)
 	}
@@ -185,7 +186,9 @@ func (w *Worker) processSource(ctx context.Context, job Job, source JobSource) J
 		}
 	}
 	result.Status = SourceSucceeded
-	if len(candidates) == job.MaxItemsPerSource {
+	// Источник отмечается неполным, если он сам отдал не весь набор
+	// (problem-list с hasMore или пропущенными задачами) либо сработал лимит job'а.
+	if truncated || len(candidates) == job.MaxItemsPerSource {
 		result.Status = SourceTruncated
 	}
 
@@ -234,26 +237,31 @@ func (w *Worker) collectTelegram(ctx context.Context, job Job, source JobSource)
 // collectWebsite загружает и нормализует одну ссылку.
 // Problem-list разворачивается в набор кандидатов, каждый со своим SourceURL
 // (external ID), а ссылка на список передаётся tasks через ProblemList.
-func (w *Worker) collectWebsite(ctx context.Context, job Job, source JobSource) ([]Candidate, error) {
+// Второе значение — источник отдал не весь набор: парсер пометил ответ
+// неполным или сработал лимит job'а.
+func (w *Worker) collectWebsite(ctx context.Context, job Job, source JobSource) ([]Candidate, bool, error) {
 	batch, err := w.websites.ReadURL(ctx, source.SourceID, source.URL)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
+	truncated := batch.Partial
 	items := make([]Candidate, 0, len(batch.RawTasks))
 	for _, raw := range batch.RawTasks {
 		if len(items) >= job.MaxItemsPerSource {
+			truncated = true
+
 			break // лимит job'а ограничивает охват крупного problem-list
 		}
 		candidate, err := w.normalize(ctx, job.ID, source.SourceID, raw.SourceURL, raw, nil, 0)
 		if err != nil {
-			return nil, fmt.Errorf("normalize website task %q: %w", raw.SourceURL, err)
+			return nil, false, fmt.Errorf("normalize website task %q: %w", raw.SourceURL, err)
 		}
 		candidate.ProblemList = batch.ProblemList
 		items = append(items, candidate)
 	}
 
-	return items, nil
+	return items, truncated, nil
 }
 
 // normalize переводит parser domain в стабильный контракт tasks.

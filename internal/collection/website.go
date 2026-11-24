@@ -13,10 +13,13 @@ import (
 )
 
 // WebsiteBatch — задачи, полученные по одной ссылке, и опциональный problem-list,
-// из которого они собраны (для лinks вида /problem-list/{slug}).
+// из которого они собраны (для ссылок вида /problem-list/{slug}).
+// Partial означает, что источник отдал не весь набор: список длиннее страницы
+// или часть задач не загрузилась.
 type WebsiteBatch struct {
 	RawTasks    []domain.RawTask
 	ProblemList *ProblemListRef
+	Partial     bool
 }
 
 // WebsiteReader загружает заранее проверенные канонические ссылки.
@@ -66,13 +69,14 @@ func (r *DirectWebsiteReader) ReadURL(ctx context.Context, sourceID, rawURL stri
 		return WebsiteBatch{RawTasks: []domain.RawTask{raw}}, nil
 	case sourceLeetCode:
 		if isLeetCodeProblemListURL(rawURL) {
-			tasks, err := r.leetcode.CollectProblemListURL(ctx, rawURL)
+			tasks, incomplete, err := r.leetcode.CollectProblemListURL(ctx, rawURL)
 			if err != nil {
 				return WebsiteBatch{}, err
 			}
 
 			return WebsiteBatch{
 				RawTasks: tasks,
+				Partial:  incomplete,
 				ProblemList: &ProblemListRef{
 					Name:      problemListName(rawURL),
 					SourceID:  sourceID,

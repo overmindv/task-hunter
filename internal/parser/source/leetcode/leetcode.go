@@ -35,10 +35,12 @@
 //	  }
 //	}
 //
-// Ответ возвращает весь список задач разом: страницы не нужны, limit/skip
-// публичный API не учитывает. Публичное имя списка (например, "Top 100 Liked
-// Questions") без авторизации недоступно, поэтому display-имя выводит клиент
-// из slug.
+// Ответ приходит одним куском, но флаг hasMore показывает, что список длиннее
+// выданной страницы: публичный API не принимает limit/skip, поэтому добрать
+// остаток нельзя. Такой ответ и пропущенные детали помечаются как неполные,
+// чтобы подборка не выглядела собранной целиком. Публичное имя списка
+// (например, "Top 100 Liked Questions") без авторизации недоступно, поэтому
+// display-имя выводит клиент из slug.
 package leetcode
 
 import (
@@ -299,46 +301,60 @@ func (c *Collector) CollectURL(ctx context.Context, rawURL string) (domain.RawTa
 	return c.problemToRawTask(detail), nil
 }
 
-// CollectProblemListURL загружает все задачи problem-list по каноническому slug.
+// CollectProblemListURL загружает задачи problem-list по каноническому slug.
 // В отличие от CollectURL (одна задача) возвращает набор задач из списка.
-func (c *Collector) CollectProblemListURL(ctx context.Context, rawURL string) ([]domain.RawTask, error) {
+// Признак incomplete означает, что список длиннее выданной страницы (hasMore)
+// или часть задач не удалось загрузить: такой результат нельзя считать полным.
+func (c *Collector) CollectProblemListURL(ctx context.Context, rawURL string) ([]domain.RawTask, bool, error) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Scheme != httpsScheme || parsed.Hostname() != leetcodeHost {
-		return nil, fmt.Errorf("leetcode: invalid problem list URL")
+		return nil, false, fmt.Errorf("leetcode: invalid problem list URL")
 	}
 	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
 	if len(parts) != 2 || parts[0] != "problem-list" || parts[1] == "" || !isSlug(parts[1]) {
-		return nil, fmt.Errorf("leetcode: unsupported problem list URL")
+		return nil, false, fmt.Errorf("leetcode: unsupported problem list URL")
 	}
 
-	problems, err := c.fetchFavoriteList(ctx, parts[1])
+	problems, hasMore, err := c.fetchFavoriteList(ctx, parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("leetcode: fetch problem list: %w", err)
+		return nil, false, fmt.Errorf("leetcode: fetch problem list: %w", err)
 	}
 
 	// Детали каждой задачи тянем тем же rate-limited запросом, что и одну задачу.
-	var tasks []domain.RawTask
+	// Порядок списка сохраняется: tasks присваивает позицию по этому порядку.
+	tasks := make([]domain.RawTask, 0, len(problems))
+	skipped := 0
 	for _, p := range problems {
 		detail, err := c.fetchQuestionDetail(ctx, p.TitleSlug)
 		if err != nil {
 			slog.Warn("leetcode: failed to fetch problem list item detail",
 				"slug", p.TitleSlug, "error", err)
+			skipped++
 
 			continue
 		}
 		if detail.Content == "" || DetectBlockingPage(detail.Content) {
 			slog.Warn("leetcode: problem list item has no content, skipping", "slug", p.TitleSlug)
+			skipped++
 
 			continue
 		}
 		tasks = append(tasks, c.problemToRawTask(detail))
 	}
 
-	return tasks, nil
+	incomplete := hasMore || skipped > 0
+	if incomplete {
+		slog.Warn("leetcode: problem list collected partially",
+			"slug", parts[1], "requested", len(problems), "collected", len(tasks),
+			"skipped", skipped, "has_more", hasMore)
+	}
+
+	return tasks, incomplete, nil
 }
 
 // fetchFavoriteList получает набор задач leetcode problem-list через GraphQL.
-func (c *Collector) fetchFavoriteList(ctx context.Context, favoriteSlug string) ([]lcProblemBrief, error) {
+// Второе значение — hasMore: список длиннее выданной страницы.
+func (c *Collector) fetchFavoriteList(ctx context.Context, favoriteSlug string) ([]lcProblemBrief, bool, error) {
 	<-c.rateLimiter.C
 
 	body, err := c.doGQL(ctx, gqlRequest{
@@ -348,18 +364,18 @@ func (c *Collector) fetchFavoriteList(ctx context.Context, favoriteSlug string) 
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	var resp gqlFavoriteListResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("parse favorite list response: %w", err)
+		return nil, false, fmt.Errorf("parse favorite list response: %w", err)
 	}
 	if len(resp.Errors) > 0 {
-		return nil, fmt.Errorf("graphql errors: %v", resp.Errors)
+		return nil, false, fmt.Errorf("graphql errors: %v", resp.Errors)
 	}
 
-	return resp.Data.FavoriteQuestionList.Questions, nil
+	return resp.Data.FavoriteQuestionList.Questions, resp.Data.FavoriteQuestionList.HasMore, nil
 }
 
 // isSlug разрешает безопасные slug из букв, цифр, дефиса и подчёркивания.

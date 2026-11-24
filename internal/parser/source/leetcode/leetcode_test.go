@@ -426,9 +426,12 @@ func TestFetchFavoriteList(t *testing.T) {
 	c := NewCollector(domain.SourceLeetCode, mock)
 	c.WithMinInterval(time.Millisecond)
 
-	problems, err := c.fetchFavoriteList(context.Background(), "oy4y273c")
+	problems, hasMore, err := c.fetchFavoriteList(context.Background(), "oy4y273c")
 	if err != nil {
 		t.Fatalf("fetchFavoriteList: %v", err)
+	}
+	if hasMore {
+		t.Fatal("fixture has no more pages")
 	}
 	if len(problems) != 2 {
 		t.Fatalf("expected 2 problems, got %d", len(problems))
@@ -466,9 +469,12 @@ func TestCollectProblemListURL(t *testing.T) {
 	c := NewCollector(domain.SourceLeetCode, mock)
 	c.WithMinInterval(time.Millisecond)
 
-	tasks, err := c.CollectProblemListURL(context.Background(), "https://leetcode.com/problem-list/oy4y273c")
+	tasks, incomplete, err := c.CollectProblemListURL(context.Background(), "https://leetcode.com/problem-list/oy4y273c")
 	if err != nil {
 		t.Fatalf("CollectProblemListURL: %v", err)
+	}
+	if incomplete {
+		t.Fatal("полный список помечен неполным")
 	}
 	if len(tasks) != 2 {
 		t.Fatalf("expected 2 tasks, got %d", len(tasks))
@@ -495,9 +501,77 @@ func TestCollectProblemListURLRejectsInvalidURL(t *testing.T) {
 		"https://evil.example.com/problem-list/oy4y273c",
 		"https://leetcode.com/problem-list/",
 	} {
-		if _, err := c.CollectProblemListURL(context.Background(), rawURL); err == nil {
+		if _, _, err := c.CollectProblemListURL(context.Background(), rawURL); err == nil {
 			t.Errorf("expected error for %q", rawURL)
 		}
+	}
+}
+
+// TestCollectProblemListURLMarksIncompleteOnHasMore проверяет, что список
+// длиннее выданной страницы помечается неполным, а не выглядит собранным целиком.
+func TestCollectProblemListURLMarksIncompleteOnHasMore(t *testing.T) {
+	t.Parallel()
+
+	const page = `{"data":{"favoriteQuestionList":{"hasMore":true,"questions":[{"title":"Two Sum","titleSlug":"two-sum","difficulty":"EASY","topicTags":[]}]}}}`
+	responses := []string{page, readFixture(t, "problem_two_sum.json")}
+	index := 0
+	mock := &callTrackingClient{fn: func(*http.Request) (*http.Response, error) {
+		body := responses[index]
+		index++
+
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}}
+	c := NewCollector(domain.SourceLeetCode, mock)
+	c.WithMinInterval(time.Millisecond)
+
+	tasks, incomplete, err := c.CollectProblemListURL(context.Background(), "https://leetcode.com/problem-list/oy4y273c")
+	if err != nil {
+		t.Fatalf("CollectProblemListURL: %v", err)
+	}
+	if !incomplete {
+		t.Fatal("ответ с hasMore=true не помечен неполным")
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task from the page, got %d", len(tasks))
+	}
+}
+
+// TestCollectProblemListURLMarksIncompleteWhenDetailFails проверяет, что
+// недоступная деталь задачи делает подборку неполной, но не роняет сбор.
+func TestCollectProblemListURLMarksIncompleteWhenDetailFails(t *testing.T) {
+	t.Parallel()
+
+	responses := []string{
+		readFixture(t, "problem_list.json"),
+		readFixture(t, "problem_two_sum.json"),
+		"",
+	}
+	index := 0
+	mock := &callTrackingClient{fn: func(*http.Request) (*http.Response, error) {
+		if index >= len(responses) {
+			return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(""))}, nil
+		}
+		body := responses[index]
+		index++
+		status := 200
+		if body == "" {
+			status = 500
+		}
+
+		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}}
+	c := NewCollector(domain.SourceLeetCode, mock)
+	c.WithMinInterval(time.Millisecond)
+
+	tasks, incomplete, err := c.CollectProblemListURL(context.Background(), "https://leetcode.com/problem-list/oy4y273c")
+	if err != nil {
+		t.Fatalf("CollectProblemListURL: %v", err)
+	}
+	if !incomplete {
+		t.Fatal("пропущенная задача не пометила подборку неполной")
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 collected task, got %d", len(tasks))
 	}
 }
 
