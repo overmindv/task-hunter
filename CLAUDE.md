@@ -92,7 +92,7 @@ make test-coverage # Покрытие тестами
 - **Lint:** `golangci-lint run ./...`
 - **Format:** `gofmt -s -w .`
 - **Goose migrate:** `goose -dir migrations postgres "$PARSER_DATABASE_DSN" up`
-- **Go-jet codegen:** `jet -source=postgres -dsn="$PARSER_DATABASE_DSN" -path internal/parser/storage/jet`
+- **Go-jet codegen:** `make jet-generate` с `JET_DATABASE_DSN` в окружении; CLI закреплён в `go.mod`
 - **CodeGraph:** `codegraph sync`
 - **Golden update:** `go test -update ./internal/parser/...`
 

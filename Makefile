@@ -1,3 +1,6 @@
+JET_SCHEMA ?= public
+JET_OUTPUT_DIR ?= internal/parser/storage/jet
+
 .PHONY: build run test lint fmt clean docker-build docker-up docker-down \
         migrate-up migrate-down migrate-status codegen codegraph help
 
@@ -100,8 +103,12 @@ migrate-create: ## Создать новый SQL-файл миграции (usag
 
 # --- Codegen ---
 
-codegen: ## Сгенерировать код go-jet
-	jet -source=postgres -dsn="$(PARSER_DATABASE_DSN)" -path=internal/parser/storage/jet
+codegen: jet-generate ## Совместимый alias генерации Jet
+
+.PHONY: jet-generate
+jet-generate:
+	@test -n "$$JET_DATABASE_DSN" || { echo "JET_DATABASE_DSN is required" >&2; exit 1; }
+	@go tool jet -source=postgres -dsn="$$JET_DATABASE_DSN" -schema="$(JET_SCHEMA)" -path="$(JET_OUTPUT_DIR)" >/dev/null 2>&1 || { echo "Jet generation failed; check database access and schema" >&2; exit 1; }
 
 codegraph: ## Синхронизировать CodeGraph
 	codegraph sync
