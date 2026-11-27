@@ -44,3 +44,18 @@ PostgreSQL component tests запускаются отдельно команд�
 Подготовка закрытого MTProto session описана в [docs/telegram-session.md](docs/telegram-session.md). Интегрированный локальный запуск находится в репозитории `infra`.
 
 Открытые примеры ввода и ожидаемого вывода сохраняются. Скрытые judge-тесты и эталонные решения сайты не публикуют, поэтому сервис их не извлекает и не пытается обходить ограничения источников.
+
+## Jet: общая конвенция OVM-341
+
+Jet закреплён в `go.mod` на `v2.15.0`; CLI объявлен через `tool` и запускается
+командой `go tool jet`. Это сохраняет версию при `go mod tidy` до переноса SQL.
+Перевод repository на сгенерированные таблицы выполняется отдельно в OVM-345.
+Модели читаются из live-схемы БД владельца после миграций, коммитятся и не
+редактируются вручную. Целевой каталог: `internal/adapter/postgres/generated`.
+`make jet-generate` читает `JET_DATABASE_DSN` из окружения и использует
+`JET_SCHEMA=public`. CLI пока сохраняет legacy-подкаталоги имени БД/схемы;
+нормализация пути и перевод потребителей входят в сервисную задачу выше.
+Для существующих импортов `JET_OUTPUT_DIR=internal/parser/storage/jet`;
+`make codegen` — совместимый alias `make jet-generate`.
+
+Порядок генерации и проверки дрейфа: [конвенция Jet](https://github.com/overmindv/docs/blob/main/architecture/jet-generation.md).
